@@ -46,7 +46,6 @@ Manipulasyon_20260127.json: Sample dataset for testing the analyzer.
 📜 Citation & Academic Use
 If you use this system in your research or clinical training, please cite:
 
-IRMAK, R. (2026). A Simulator and Analysis Tool Design in the Context of Harm Anxiety in Cervical Manipulation Training (Version 1.2). Zenodo. https://doi.org/10.5281/zenodo.18390885
-
+IRMAK, R. (2026). A Simulator and Analysis Tool Design in the Context of Harm Anxiety in Cervical Manipulation Training (Version 1.2). 
 ⚖️ License
 Distributed under the CC BY 4.0 (Creative Commons Attribution 4.0 International).
