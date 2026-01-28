@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- USB-1608FS + cbw64 için genelde en sorunsuz: x64 -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <!-- Universal Library .NET assembly -->
+  <!-- 1) MccDaq.dll dosyasını proje klasörüne koy (csproj ile aynı klasör) -->
+  <!--    veya HintPath'i kendi MccDaq.dll konumuna göre düzelt -->
+  <ItemGroup>
+    <Reference Include="MccDaq">
+      <HintPath>.\MccDaq.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- cbw DLL'lerini çıktı klasörüne kopyala -->
+  <ItemGroup>
+    <None Include="cbw64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="cbw32.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

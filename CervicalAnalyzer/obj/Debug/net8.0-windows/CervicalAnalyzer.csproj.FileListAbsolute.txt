@@ -1,0 +1,14 @@
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\bin\Debug\net8.0-windows\CervicalAnalyzer.exe
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\bin\Debug\net8.0-windows\CervicalAnalyzer.deps.json
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\bin\Debug\net8.0-windows\CervicalAnalyzer.runtimeconfig.json
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\bin\Debug\net8.0-windows\CervicalAnalyzer.dll
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\bin\Debug\net8.0-windows\CervicalAnalyzer.pdb
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.AssemblyInfoInputs.cache
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.AssemblyInfo.cs
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.csproj.CoreCompileInputs.cache
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.dll
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\refint\CervicalAnalyzer.dll
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.pdb
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\CervicalAnalyzer.genruntimeconfig.cache
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalAnalyzer\obj\Debug\net8.0-windows\ref\CervicalAnalyzer.dll
