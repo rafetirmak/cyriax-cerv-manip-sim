@@ -32,4 +32,12 @@
     </None>
   </ItemGroup>
 
+
+
+<ItemGroup>
+  <None Update="calibration.json">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
 </Project>

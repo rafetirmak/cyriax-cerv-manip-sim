@@ -17,6 +17,7 @@ C:\Users\RAFET IRMAK\desktop\cervical force simulator c#\CervicalForceSim\obj\De
 C:\Users\RAFET IRMAK\desktop\cervical force simulator c#\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.pdb
 C:\Users\RAFET IRMAK\desktop\cervical force simulator c#\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.genruntimeconfig.cache
 C:\Users\RAFET IRMAK\desktop\cervical force simulator c#\CervicalForceSim\obj\Debug\net8.0-windows\ref\CervicalForceSim.dll
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\bin\Debug\net8.0-windows\calibration.json
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\bin\Debug\net8.0-windows\cbw64.dll
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\bin\Debug\net8.0-windows\cbw32.dll
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\bin\Debug\net8.0-windows\CervicalForceSim.exe
@@ -30,10 +31,10 @@ C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceS
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.AssemblyInfoInputs.cache
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.AssemblyInfo.cs
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.csproj.CoreCompileInputs.cache
+C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.sourcelink.json
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\Cervical.BA63472C.Up2Date
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.dll
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\refint\CervicalForceSim.dll
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.pdb
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.genruntimeconfig.cache
 C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\ref\CervicalForceSim.dll
-C:\Users\RAFET IRMAK\Desktop\cervical force simulator Source code\CervicalForceSim\obj\Debug\net8.0-windows\CervicalForceSim.sourcelink.json

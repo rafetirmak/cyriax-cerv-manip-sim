@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Windows.Forms;
 using MccDaq;
-using System.Text.Json;
 
 namespace CervicalForceSim
 {
@@ -17,37 +17,62 @@ namespace CervicalForceSim
         private const int HighChan = 1;
         private const MccDaq.Range DaqRange = MccDaq.Range.Bip10Volts;
 
-        // Rate = channel başına (USB-1608FS)
+        // Kayıt örnekleme (per channel)
         private const int SampleRate = 1000;
         private const int DurationSec = 10;
 
-        // TOTAL points (tüm kanallar dahil)
-        private int _totalBufferSize;
+        // Ekran çizim hedefi (downsample)
+        private const int DisplayRate = 500;
 
-        // ---- DAQ Değişkenleri ----
+        // Manuel eksen aralıkları (SENİN İSTEDİĞİN)
+        private const float ForceMin = -5f;
+        private const float ForceMax = 20f;
+
+        private const float AngleMin = -40f;
+        private const float AngleMax = 160f;
+
+
+        private const bool InvertAngle = true; // açı yönünü ters çevir (gerekliyse true)
+
+        // ---- Buffer ----
+        private int _totalBufferSize; // TOTAL points (all channels)
         private IntPtr _memHandle = IntPtr.Zero;
-        private int _lastScanIndex = 0; // TOTAL point index
+        private int _lastScanIndex = 0;
         private bool _isAcquiring = false;
         private System.Windows.Forms.Timer _plotTimer;
         private int _sampleRateProxy = SampleRate;
 
-        // ---- Veri Yapıları ----
-        private List<double> _timeLog = new List<double>();
-        private List<double> _forceLog = new List<double>();
-        private List<double> _angleLog = new List<double>();
+        // ---- Tam çözünürlük (JSON) ----
+        private readonly List<double> _timeLog = new();
+        private readonly List<double> _forceLog = new();
+        private readonly List<double> _angleLog = new();
 
-        private List<PointF> _forceData = new List<PointF>();
-        private List<PointF> _angleData = new List<PointF>();
+        // ---- Ekran için downsample ----
+        private readonly List<PointF> _forceData = new();
+        private readonly List<PointF> _angleData = new();
 
-        // ---- Kalibrasyon ve Filtre ----
+        // ---- Kalibrasyon parametreleri (Volt -> birim) ----
         private double _forceSlope = 10.0;
         private double _forceOffset = 0.0;
         private double _angleSlope = 72.0;
         private double _angleOffset = 0.0;
 
+        // ---- Baseline (zero) kalibrasyonu: ölçümden düşülecek değerler ----
+        private double _forceZero = 0.0; // kgf
+        private double _angleZero = 0.0; // deg
+
+        // ---- Filtreler ----
         private ButterworthFilter? _forceFilter;
+        private ButterworthFilter? _angleFilter;
+
+        // ---- Display decimation ----
+        private int _displayDecimation = 2; // 1000 -> 500 default
 
         private int NumChans => (HighChan - LowChan + 1);
+
+        // ---- En son değerler (butonla "zero" almak için) ----
+        private double _lastForceShown = 0.0;
+        private double _lastAngleShown = 0.0;
 
         public Form1()
         {
@@ -57,11 +82,16 @@ namespace CervicalForceSim
             btnStop.Enabled = false;
             btnSaveCsv.Enabled = false;
 
+            UpdateSamplingLabel();
+
             _plotTimer = new System.Windows.Forms.Timer();
             _plotTimer.Interval = 50;
             _plotTimer.Tick += OnTimerTick;
 
             numTargetForce.ValueChanged += (s, e) => canvas.Invalidate();
+
+            if (btnZeroForce != null) btnZeroForce.Click += btnZeroForce_Click;
+            if (btnZeroAngle != null) btnZeroAngle.Click += btnZeroAngle_Click;
         }
 
         private void btnStart_Click(object? sender, EventArgs e)
@@ -75,7 +105,6 @@ namespace CervicalForceSim
                 btnSaveCsv.Enabled = false;
                 lblStatus.Text = "Acquiring...";
 
-                // Temizlik
                 _forceData.Clear();
                 _angleData.Clear();
                 _timeLog.Clear();
@@ -83,8 +112,8 @@ namespace CervicalForceSim
                 _angleLog.Clear();
                 _lastScanIndex = 0;
 
-                // Buffer boyutu: TOTAL points = rate * süre * kanal_sayısı
-                _totalBufferSize = SampleRate * DurationSec * NumChans;
+                int numChans = NumChans;
+                _totalBufferSize = SampleRate * DurationSec * numChans;
 
                 if (_memHandle != IntPtr.Zero)
                     MccService.WinBufFreeEx(_memHandle);
@@ -95,29 +124,21 @@ namespace CervicalForceSim
 
                 var board = new MccBoard(BoardNum);
 
-                // BlockIO .NET'te yok -> Background + ConvertData ile ilerliyoruz
                 ScanOptions options = ScanOptions.Background | ScanOptions.ConvertData;
 
-                _sampleRateProxy = SampleRate; // sürücü gerekirse günceller
+                _sampleRateProxy = SampleRate;
 
-                // !!! Kritik düzeltme:
-                // Count = TOTAL points (tüm kanallar dahil) olmalı.
-                int count = _totalBufferSize;
+                int count = _totalBufferSize; // TOTAL points
 
-                ErrorInfo err = board.AInScan(
-                    LowChan,
-                    HighChan,
-                    count,
-                    ref _sampleRateProxy,
-                    DaqRange,
-                    _memHandle,
-                    options);
-
+                ErrorInfo err = board.AInScan(LowChan, HighChan, count, ref _sampleRateProxy, DaqRange, _memHandle, options);
                 if (err.Value != ErrorInfo.ErrorCode.NoErrors)
                     throw new Exception("AInScan Error: " + err.Message);
 
-                // Filtreyi gerçek örnekleme hızıyla kur
                 _forceFilter = new ButterworthFilter(_sampleRateProxy, 15.0);
+                _angleFilter = new ButterworthFilter(_sampleRateProxy, 15.0);
+
+                _displayDecimation = Math.Max(1, (int)Math.Round((double)_sampleRateProxy / DisplayRate));
+                UpdateSamplingLabel();
 
                 _isAcquiring = true;
                 _plotTimer.Start();
@@ -138,10 +159,8 @@ namespace CervicalForceSim
             int curCount, curIndex;
             board.GetStatus(out status, out curCount, out curIndex, FunctionType.AiFunction);
 
-            // Her tick'te, curIndex'e kadar olan veriyi güvenli şekilde oku
             ReadAvailablePoints(curIndex);
 
-            // Scan bittiyse: kalanlar flush edildi, şimdi durdur.
             if (status != MccBoard.Running)
             {
                 StopAcquisition();
@@ -152,11 +171,6 @@ namespace CervicalForceSim
             canvas.Invalidate();
         }
 
-        /// <summary>
-        /// WinBuf içerisinden _lastScanIndex ile curIndex arasındaki TOTAL point'leri okur.
-        /// Kanal hizasını bozmasın diye okuma miktarını kanal sayısının katına indirir.
-        /// Buffer sarma (wrap-around) durumunu yönetir.
-        /// </summary>
         private void ReadAvailablePoints(int curIndex)
         {
             if (_memHandle == IntPtr.Zero) return;
@@ -166,11 +180,10 @@ namespace CervicalForceSim
 
             if (curIndex == _lastScanIndex) return;
 
-            // curIndex > last: normal okuma
             if (curIndex > _lastScanIndex)
             {
                 int pointsToRead = curIndex - _lastScanIndex;
-                pointsToRead -= (pointsToRead % numChans); // hizala
+                pointsToRead -= (pointsToRead % numChans);
 
                 if (pointsToRead <= 0) return;
 
@@ -179,8 +192,6 @@ namespace CervicalForceSim
                 return;
             }
 
-            // curIndex < last => wrap-around
-            // 1) last -> end
             int tailPoints = _totalBufferSize - _lastScanIndex;
             tailPoints -= (tailPoints % numChans);
             if (tailPoints > 0)
@@ -189,7 +200,6 @@ namespace CervicalForceSim
                 _lastScanIndex = (_lastScanIndex + tailPoints) % _totalBufferSize;
             }
 
-            // 2) 0 -> curIndex
             int headPoints = curIndex;
             headPoints -= (headPoints % numChans);
             if (headPoints > 0)
@@ -213,7 +223,6 @@ namespace CervicalForceSim
             int numChans = NumChans;
             if (numChans <= 0) return;
 
-            // chunk: TOTAL points; bir "scan" = numChans point
             int scanCount = chunk.Length / numChans;
             if (scanCount <= 0) return;
 
@@ -222,7 +231,6 @@ namespace CervicalForceSim
 
             for (int i = 0; i < scanCount; i++)
             {
-                // Kanal sırası interleaved: LowChan..HighChan
                 ushort rawForce = chunk[i * numChans + 0];
                 ushort rawAngle = chunk[i * numChans + 1];
 
@@ -230,28 +238,39 @@ namespace CervicalForceSim
                 board.ToEngUnits(DaqRange, rawForce, out vForce);
                 board.ToEngUnits(DaqRange, rawAngle, out vAngle);
 
-                double rawForceKgf = (_forceSlope * vForce) + _forceOffset;
+                double forceKgf = (_forceSlope * vForce) + _forceOffset;
                 double angleDeg = (_angleSlope * vAngle) + _angleOffset;
 
-                double filteredForce = rawForceKgf;
-                if (chkFilter.Checked && _forceFilter != null)
-                    filteredForce = _forceFilter.Filter(rawForceKgf);
+                if (InvertAngle) angleDeg = -angleDeg;
 
-                float t = (float)(startIndex + i) / (float)_sampleRateProxy;
+                if (chkFilter.Checked)
+                {
+                    if (_forceFilter != null) forceKgf = _forceFilter.Filter(forceKgf);
+                    if (_angleFilter != null) angleDeg = _angleFilter.Filter(angleDeg);
+                }
+
+                forceKgf -= _forceZero;
+                angleDeg -= _angleZero;
+
+                int globalSampleIndex = startIndex + i;
+                float t = (float)globalSampleIndex / _sampleRateProxy;
 
                 _timeLog.Add(t);
-                _forceLog.Add(filteredForce);
+                _forceLog.Add(forceKgf);
                 _angleLog.Add(angleDeg);
 
-                _forceData.Add(new PointF(t, (float)filteredForce));
-                _angleData.Add(new PointF(t, (float)angleDeg));
+                if (_displayDecimation <= 1 || (globalSampleIndex % _displayDecimation == 0))
+                {
+                    _forceData.Add(new PointF(t, (float)forceKgf));
+                    _angleData.Add(new PointF(t, (float)angleDeg));
+                }
+
+                _lastForceShown = forceKgf;
+                _lastAngleShown = angleDeg;
             }
 
-            if (_forceLog.Count > 0)
-            {
-                txtForceVal.Text = _forceLog.Last().ToString("F2");
-                txtAngleVal.Text = _angleLog.Last().ToString("F1");
-            }
+            txtForceVal.Text = _lastForceShown.ToString("F2");
+            txtAngleVal.Text = _lastAngleShown.ToString("F1");
         }
 
         private void canvas_Paint(object sender, PaintEventArgs e)
@@ -259,60 +278,141 @@ namespace CervicalForceSim
             Graphics g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            float w = canvas.Width;
-            float h = canvas.Height;
+            float W = canvas.Width;
+            float H = canvas.Height;
 
-            // Izgara Çizimi
+            float leftM = 55;
+            float rightM = 55;
+            float topM = 15;
+            float bottomM = 35;
+
+            float plotW = Math.Max(1, W - leftM - rightM);
+            float plotH = Math.Max(1, H - topM - bottomM);
+
+            // Izgara
             using (Pen pGrid = new Pen(Color.LightGray, 1))
             {
                 for (int i = 0; i <= 10; i++)
                 {
-                    float y = i * (h / 10.0f);
-                    g.DrawLine(pGrid, 0, y, w, y);
-                    float x = i * (w / 10.0f);
-                    g.DrawLine(pGrid, x, 0, x, h);
+                    float y = topM + i * (plotH / 10.0f);
+                    g.DrawLine(pGrid, leftM, y, leftM + plotW, y);
+
+                    float x = leftM + i * (plotW / 10.0f);
+                    g.DrawLine(pGrid, x, topM, x, topM + plotH);
                 }
             }
 
-            // Target Zone
-            float maxForceScale = 50.0f;
+            // Target zone (ForceMin/ForceMax'e göre)
             float targetForce = (float)numTargetForce.Value;
-            float tolerance = 2.0f;
+            float tol = 2.0f;
 
-            float yZoneTop = h - (((targetForce + tolerance) / maxForceScale) * h);
-            float yZoneBottom = h - (((targetForce - tolerance) / maxForceScale) * h);
+            float yZoneTop = topM + plotH - (((targetForce + tol - ForceMin) / (ForceMax - ForceMin)) * plotH);
+            float yZoneBottom = topM + plotH - (((targetForce - tol - ForceMin) / (ForceMax - ForceMin)) * plotH);
 
             using (SolidBrush bZone = new SolidBrush(Color.FromArgb(50, 128, 128, 128)))
             {
-                g.FillRectangle(bZone, 0, yZoneTop, w, yZoneBottom - yZoneTop);
+                g.FillRectangle(bZone, leftM, yZoneTop, plotW, yZoneBottom - yZoneTop);
             }
+
+            // Eksen çizgileri
+            using (Pen pAxis = new Pen(Color.Gray, 2))
+            {
+                g.DrawLine(pAxis, leftM, topM, leftM, topM + plotH);                 // sol y
+                g.DrawLine(pAxis, leftM + plotW, topM, leftM + plotW, topM + plotH); // sağ y
+                g.DrawLine(pAxis, leftM, topM + plotH, leftM + plotW, topM + plotH); // x
+            }
+
+            // Force 0 çizgisi (daha net görünsün)
+            float yZeroForce = topM + plotH - (((0f - ForceMin) / (ForceMax - ForceMin)) * plotH);
+            using (Pen pZero = new Pen(Color.Black, 2))
+            {
+                g.DrawLine(pZero, leftM, yZeroForce, leftM + plotW, yZeroForce);
+            }
+
+            DrawAxes(g, leftM, rightM, topM, bottomM, plotW, plotH);
 
             if (_forceData.Count < 2) return;
 
-            // Ekran bozulmasın diye aynı mantık korunuyor
             float maxTime = DurationSec;
-            float maxAngleScale = 120.0f;
 
             using (Pen pForce = new Pen(Color.Red, 2))
             using (Pen pAngle = new Pen(Color.Blue, 2))
             {
                 for (int i = 1; i < _forceData.Count; i++)
                 {
-                    float x1 = (_forceData[i - 1].X / maxTime) * w;
-                    float yF1 = h - ((_forceData[i - 1].Y / maxForceScale) * h);
-                    float yA1 = h - ((_angleData[i - 1].Y / maxAngleScale) * h);
+                    float x1 = leftM + (_forceData[i - 1].X / maxTime) * plotW;
+                    float x2 = leftM + (_forceData[i].X / maxTime) * plotW;
 
-                    float x2 = (_forceData[i].X / maxTime) * w;
-                    float yF2 = h - ((_forceData[i].Y / maxForceScale) * h);
-                    float yA2 = h - ((_angleData[i].Y / maxAngleScale) * h);
+                    if (x2 > leftM + plotW) continue;
 
-                    if (x2 <= w)
-                    {
-                        g.DrawLine(pForce, x1, yF1, x2, yF2);
-                        g.DrawLine(pAngle, x1, yA1, x2, yA2);
-                    }
+                    float yF1 = topM + plotH - (((_forceData[i - 1].Y - ForceMin) / (ForceMax - ForceMin)) * plotH);
+                    float yF2 = topM + plotH - (((_forceData[i].Y     - ForceMin) / (ForceMax - ForceMin)) * plotH);
+
+                    float yA1 = topM + plotH - (((_angleData[i - 1].Y - AngleMin) / (AngleMax - AngleMin)) * plotH);
+                    float yA2 = topM + plotH - (((_angleData[i].Y     - AngleMin) / (AngleMax - AngleMin)) * plotH);
+
+                    g.DrawLine(pForce, x1, yF1, x2, yF2);
+                    g.DrawLine(pAngle, x1, yA1, x2, yA2);
                 }
             }
+        }
+
+        private void DrawAxes(Graphics g, float leftM, float rightM, float topM, float bottomM, float plotW, float plotH)
+        {
+            using var f = new Font("Segoe UI", 9);
+            using var b = new SolidBrush(Color.DimGray);
+
+            // Left Y label (Force)
+            g.DrawString("Force (kgf)", f, b, 5, topM - 2);
+
+            // Right Y label (Angle)
+            var angleLabel = "Angle (°)";
+            var sz = g.MeasureString(angleLabel, f);
+            g.DrawString(angleLabel, f, b, leftM + plotW + (rightM - sz.Width) / 2, topM - 2);
+
+            // X label (Time)
+            var xLabel = "Time (s)";
+            var xSz = g.MeasureString(xLabel, f);
+            g.DrawString(xLabel, f, b, leftM + (plotW - xSz.Width) / 2, topM + plotH + 8);
+
+            // Y ticks: ForceMin..ForceMax / AngleMin..AngleMax
+            for (int i = 0; i <= 5; i++)
+            {
+                float frac = i / 5f;
+                float y = topM + plotH - frac * plotH;
+
+                float forceVal = ForceMin + frac * (ForceMax - ForceMin);
+                string ft = forceVal.ToString("0");
+                var fsz = g.MeasureString(ft, f);
+                g.DrawString(ft, f, b, leftM - 6 - fsz.Width, y - fsz.Height / 2);
+
+                float angVal = AngleMin + frac * (AngleMax - AngleMin);
+                string at = angVal.ToString("0");
+                g.DrawString(at, f, b, leftM + plotW + 6, y - fsz.Height / 2);
+            }
+
+            // X ticks: 0..DurationSec
+            for (int i = 0; i <= 5; i++)
+            {
+                float frac = i / 5f;
+                float x = leftM + frac * plotW;
+                float t = frac * DurationSec;
+                string tt = t.ToString("0");
+                var tsz = g.MeasureString(tt, f);
+                g.DrawString(tt, f, b, x - tsz.Width / 2, topM + plotH + 18);
+            }
+        }
+
+        private void btnZeroForce_Click(object? sender, EventArgs e)
+        {
+            _forceZero += _lastForceShown;
+            SaveCalibration();
+        }
+
+        private void btnZeroAngle_Click(object? sender, EventArgs e)
+        {
+            _angleZero += _lastAngleShown;
+            SaveCalibration();
         }
 
         private void btnSaveCsv_Click(object sender, EventArgs e)
@@ -326,7 +426,11 @@ namespace CervicalForceSim
             {
                 var record = new ManipulationRecord
                 {
-                    SamplingRate = _sampleRateProxy,
+                    SamplingRate = SampleRate,
+                    ActualSamplingRate = _sampleRateProxy,
+                    DisplaySamplingRate = DisplayRate,
+                    ForceZero = _forceZero,
+                    AngleZero = _angleZero,
                     Time = _timeLog,
                     Force = _forceLog,
                     Angle = _angleLog
@@ -347,6 +451,7 @@ namespace CervicalForceSim
         {
             _isAcquiring = false;
             _plotTimer.Stop();
+
             try { new MccBoard(BoardNum).StopBackground(FunctionType.AiFunction); } catch { }
 
             btnStart.Enabled = true;
@@ -355,41 +460,76 @@ namespace CervicalForceSim
             lblStatus.Text = "Stopped.";
         }
 
+        private string GetCalibrationPath()
+            => Path.Combine(AppContext.BaseDirectory, "calibration.json");
+
         private void LoadCalibration()
         {
-            // Çalışma dizini değişirse diye exe yanını da dene
-            string p1 = Path.Combine(AppContext.BaseDirectory, "calibration.json");
-            string p2 = "calibration.json";
-            string? path = File.Exists(p1) ? p1 : (File.Exists(p2) ? p2 : null);
-
-            if (path == null) return;
+            string path = GetCalibrationPath();
+            if (!File.Exists(path)) return;
 
             try
             {
+                var json = File.ReadAllText(path);
                 var config = JsonSerializer.Deserialize<CalibrationConfig>(
-                    File.ReadAllText(path),
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                );
 
-                if (config != null)
-                {
-                    _forceSlope = config.Force.Slope; _forceOffset = config.Force.Offset;
-                    _angleSlope = config.Angle.Slope; _angleOffset = config.Angle.Offset;
-                    numTargetForce.Value = config.DefaultTargetForce;
-                }
+                if (config == null) return;
+
+                _forceSlope = config.Force.Slope;
+                _forceOffset = config.Force.Offset;
+
+                _angleSlope = config.Angle.Slope;
+                _angleOffset = config.Angle.Offset;
+
+                _forceZero = config.Force.Zero;
+                _angleZero = config.Angle.Zero;
+
+                numTargetForce.Value = config.DefaultTargetForce;
             }
             catch { }
+        }
+
+        private void SaveCalibration()
+        {
+            try
+            {
+                var config = new CalibrationConfig
+                {
+                    Force = new SensorConfig { Slope = _forceSlope, Offset = _forceOffset, Zero = _forceZero },
+                    Angle = new SensorConfig { Slope = _angleSlope, Offset = _angleOffset, Zero = _angleZero },
+                    DefaultTargetForce = numTargetForce.Value
+                };
+
+                File.WriteAllText(
+                    GetCalibrationPath(),
+                    JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true })
+                );
+            }
+            catch { }
+        }
+
+        private void UpdateSamplingLabel()
+        {
+            if (lblSampling == null) return;
+            lblSampling.Text = $"Sampling: {SampleRate} Hz | Actual: {_sampleRateProxy} Hz | Display: {DisplayRate} Hz";
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             StopAcquisition();
-            if (_memHandle != IntPtr.Zero) MccService.WinBufFreeEx(_memHandle);
+            SaveCalibration();
+
+            if (_memHandle != IntPtr.Zero)
+                MccService.WinBufFreeEx(_memHandle);
+
             base.OnFormClosing(e);
         }
     }
 
-    // --- YARDIMCI SINIFLAR (Namespace içinde, Form dışında) ---
-
+    // ---- Helper classes ----
     public class ButterworthFilter
     {
         private readonly double _b0, _b1, _b2, _a1, _a2;
@@ -428,14 +568,22 @@ namespace CervicalForceSim
     {
         public double Slope { get; set; } = 1.0;
         public double Offset { get; set; } = 0.0;
+        public double Zero { get; set; } = 0.0;
     }
 
     public class ManipulationRecord
     {
         public DateTime Date { get; set; } = DateTime.Now;
+
         public int SamplingRate { get; set; }
-        public List<double> Time { get; set; } = new List<double>();
-        public List<double> Force { get; set; } = new List<double>();
-        public List<double> Angle { get; set; } = new List<double>();
+        public int ActualSamplingRate { get; set; }
+        public int DisplaySamplingRate { get; set; }
+
+        public double ForceZero { get; set; }
+        public double AngleZero { get; set; }
+
+        public List<double> Time { get; set; } = new();
+        public List<double> Force { get; set; } = new();
+        public List<double> Angle { get; set; } = new();
     }
 }

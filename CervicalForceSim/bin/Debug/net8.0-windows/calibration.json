@@ -1,0 +1,13 @@
+{
+  "Force": {
+    "Slope": 20.7562,
+    "Offset": 0.3480181,
+    "Zero": 6.886689265692278
+  },
+  "Angle": {
+    "Slope": 51.149,
+    "Offset": 4.148,
+    "Zero": -19.42373133003683
+  },
+  "DefaultTargetForce": 22
+}
