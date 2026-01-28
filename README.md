@@ -43,9 +43,11 @@ Environment: Visual Studio 2022 / .NET Desktop Development.
 
 Manipulasyon_20260127.json: Sample dataset for testing the analyzer.
 
-📜 Citation & Academic Use
-If you use this system in your research or clinical training, please cite:
+## 📜 Citation & Academic Use
 
-IRMAK, R. (2026). A Simulator and Analysis Tool Design in the Context of Harm Anxiety in Cervical Manipulation Training (Version 1.2). 
+If you use this system in your research or clinical training, please cite it as:
+
+> **IRMAK, R.** (2026). *A Simulator and Analysis Tool Design in the Context of Harm Anxiety in Cervical Manipulation Training* (Version 1.2.0). Zenodo. https://doi.org/10.5281/zenodo.18405267
+
 ⚖️ License
 Distributed under the CC BY 4.0 (Creative Commons Attribution 4.0 International).
