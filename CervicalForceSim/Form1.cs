@@ -16,13 +16,17 @@ namespace CervicalForceSim
         private const int LowChan = 0;
         private const int HighChan = 1;
         private const MccDaq.Range DaqRange = MccDaq.Range.Bip10Volts;
+
+        // Rate = channel başına (USB-1608FS)
         private const int SampleRate = 1000;
         private const int DurationSec = 10;
+
+        // TOTAL points (tüm kanallar dahil)
         private int _totalBufferSize;
 
         // ---- DAQ Değişkenleri ----
         private IntPtr _memHandle = IntPtr.Zero;
-        private int _lastScanIndex = 0;
+        private int _lastScanIndex = 0; // TOTAL point index
         private bool _isAcquiring = false;
         private System.Windows.Forms.Timer _plotTimer;
         private int _sampleRateProxy = SampleRate;
@@ -40,20 +44,23 @@ namespace CervicalForceSim
         private double _forceOffset = 0.0;
         private double _angleSlope = 72.0;
         private double _angleOffset = 0.0;
-        
+
         private ButterworthFilter? _forceFilter;
+
+        private int NumChans => (HighChan - LowChan + 1);
 
         public Form1()
         {
             InitializeComponent();
             LoadCalibration();
+
             btnStop.Enabled = false;
             btnSaveCsv.Enabled = false;
 
             _plotTimer = new System.Windows.Forms.Timer();
-            _plotTimer.Interval = 50; 
+            _plotTimer.Interval = 50;
             _plotTimer.Tick += OnTimerTick;
-            
+
             numTargetForce.ValueChanged += (s, e) => canvas.Invalidate();
         }
 
@@ -71,23 +78,46 @@ namespace CervicalForceSim
                 // Temizlik
                 _forceData.Clear();
                 _angleData.Clear();
-                _timeLog.Clear(); 
-                _forceLog.Clear(); 
+                _timeLog.Clear();
+                _forceLog.Clear();
                 _angleLog.Clear();
                 _lastScanIndex = 0;
 
-                // Filtre başlatma: 1000Hz örnekleme, 15Hz kesme frekansı
-                _forceFilter = new ButterworthFilter(SampleRate, 15.0);
+                // Buffer boyutu: TOTAL points = rate * süre * kanal_sayısı
+                _totalBufferSize = SampleRate * DurationSec * NumChans;
 
-                _totalBufferSize = SampleRate * DurationSec * 2;
-                if (_memHandle != IntPtr.Zero) MccService.WinBufFreeEx(_memHandle);
+                if (_memHandle != IntPtr.Zero)
+                    MccService.WinBufFreeEx(_memHandle);
+
                 _memHandle = MccService.WinBufAllocEx(_totalBufferSize);
-                
-                if (_memHandle == IntPtr.Zero) throw new Exception("Memory Alloc Failed");
+                if (_memHandle == IntPtr.Zero)
+                    throw new Exception("Memory Alloc Failed");
 
                 var board = new MccBoard(BoardNum);
+
+                // BlockIO .NET'te yok -> Background + ConvertData ile ilerliyoruz
                 ScanOptions options = ScanOptions.Background | ScanOptions.ConvertData;
-                board.AInScan(LowChan, HighChan, _totalBufferSize / 2, ref _sampleRateProxy, DaqRange, _memHandle, options);
+
+                _sampleRateProxy = SampleRate; // sürücü gerekirse günceller
+
+                // !!! Kritik düzeltme:
+                // Count = TOTAL points (tüm kanallar dahil) olmalı.
+                int count = _totalBufferSize;
+
+                ErrorInfo err = board.AInScan(
+                    LowChan,
+                    HighChan,
+                    count,
+                    ref _sampleRateProxy,
+                    DaqRange,
+                    _memHandle,
+                    options);
+
+                if (err.Value != ErrorInfo.ErrorCode.NoErrors)
+                    throw new Exception("AInScan Error: " + err.Message);
+
+                // Filtreyi gerçek örnekleme hızıyla kur
+                _forceFilter = new ButterworthFilter(_sampleRateProxy, 15.0);
 
                 _isAcquiring = true;
                 _plotTimer.Start();
@@ -108,6 +138,10 @@ namespace CervicalForceSim
             int curCount, curIndex;
             board.GetStatus(out status, out curCount, out curIndex, FunctionType.AiFunction);
 
+            // Her tick'te, curIndex'e kadar olan veriyi güvenli şekilde oku
+            ReadAvailablePoints(curIndex);
+
+            // Scan bittiyse: kalanlar flush edildi, şimdi durdur.
             if (status != MccBoard.Running)
             {
                 StopAcquisition();
@@ -115,29 +149,82 @@ namespace CervicalForceSim
                 return;
             }
 
+            canvas.Invalidate();
+        }
+
+        /// <summary>
+        /// WinBuf içerisinden _lastScanIndex ile curIndex arasındaki TOTAL point'leri okur.
+        /// Kanal hizasını bozmasın diye okuma miktarını kanal sayısının katına indirir.
+        /// Buffer sarma (wrap-around) durumunu yönetir.
+        /// </summary>
+        private void ReadAvailablePoints(int curIndex)
+        {
+            if (_memHandle == IntPtr.Zero) return;
+
+            int numChans = NumChans;
+            if (numChans <= 0) return;
+
+            if (curIndex == _lastScanIndex) return;
+
+            // curIndex > last: normal okuma
             if (curIndex > _lastScanIndex)
             {
-                int samplesToRead = curIndex - _lastScanIndex;
-                ushort[] chunk = new ushort[samplesToRead];
-                MccService.WinBufToArray(_memHandle, chunk, _lastScanIndex, samplesToRead);
+                int pointsToRead = curIndex - _lastScanIndex;
+                pointsToRead -= (pointsToRead % numChans); // hizala
 
-                ProcessChunk(chunk);
+                if (pointsToRead <= 0) return;
 
-                _lastScanIndex = curIndex;
-                canvas.Invalidate();
+                ReadAndProcess(_lastScanIndex, pointsToRead);
+                _lastScanIndex += pointsToRead;
+                return;
             }
+
+            // curIndex < last => wrap-around
+            // 1) last -> end
+            int tailPoints = _totalBufferSize - _lastScanIndex;
+            tailPoints -= (tailPoints % numChans);
+            if (tailPoints > 0)
+            {
+                ReadAndProcess(_lastScanIndex, tailPoints);
+                _lastScanIndex = (_lastScanIndex + tailPoints) % _totalBufferSize;
+            }
+
+            // 2) 0 -> curIndex
+            int headPoints = curIndex;
+            headPoints -= (headPoints % numChans);
+            if (headPoints > 0)
+            {
+                ReadAndProcess(0, headPoints);
+                _lastScanIndex = headPoints;
+            }
+        }
+
+        private void ReadAndProcess(int startPoint, int pointsToRead)
+        {
+            if (pointsToRead <= 0) return;
+
+            ushort[] chunk = new ushort[pointsToRead];
+            MccService.WinBufToArray(_memHandle, chunk, startPoint, pointsToRead);
+            ProcessChunk(chunk);
         }
 
         private void ProcessChunk(ushort[] chunk)
         {
-            int sampleCount = chunk.Length / 2;
+            int numChans = NumChans;
+            if (numChans <= 0) return;
+
+            // chunk: TOTAL points; bir "scan" = numChans point
+            int scanCount = chunk.Length / numChans;
+            if (scanCount <= 0) return;
+
             var board = new MccBoard(BoardNum);
             int startIndex = _timeLog.Count;
 
-            for (int i = 0; i < sampleCount; i++)
+            for (int i = 0; i < scanCount; i++)
             {
-                ushort rawForce = chunk[i * 2 + 0];
-                ushort rawAngle = chunk[i * 2 + 1];
+                // Kanal sırası interleaved: LowChan..HighChan
+                ushort rawForce = chunk[i * numChans + 0];
+                ushort rawAngle = chunk[i * numChans + 1];
 
                 float vForce, vAngle;
                 board.ToEngUnits(DaqRange, rawForce, out vForce);
@@ -146,15 +233,12 @@ namespace CervicalForceSim
                 double rawForceKgf = (_forceSlope * vForce) + _forceOffset;
                 double angleDeg = (_angleSlope * vAngle) + _angleOffset;
 
-                // --- BUTTERWORTH FİLTRELEME ---
                 double filteredForce = rawForceKgf;
                 if (chkFilter.Checked && _forceFilter != null)
-                {
                     filteredForce = _forceFilter.Filter(rawForceKgf);
-                }
 
                 float t = (float)(startIndex + i) / (float)_sampleRateProxy;
-                
+
                 _timeLog.Add(t);
                 _forceLog.Add(filteredForce);
                 _angleLog.Add(angleDeg);
@@ -174,7 +258,7 @@ namespace CervicalForceSim
         {
             Graphics g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            
+
             float w = canvas.Width;
             float h = canvas.Height;
 
@@ -193,7 +277,7 @@ namespace CervicalForceSim
             // Target Zone
             float maxForceScale = 50.0f;
             float targetForce = (float)numTargetForce.Value;
-            float tolerance = 2.0f; 
+            float tolerance = 2.0f;
 
             float yZoneTop = h - (((targetForce + tolerance) / maxForceScale) * h);
             float yZoneBottom = h - (((targetForce - tolerance) / maxForceScale) * h);
@@ -205,6 +289,7 @@ namespace CervicalForceSim
 
             if (_forceData.Count < 2) return;
 
+            // Ekran bozulmasın diye aynı mantık korunuyor
             float maxTime = DurationSec;
             float maxAngleScale = 120.0f;
 
@@ -239,11 +324,19 @@ namespace CervicalForceSim
 
             if (sfd.ShowDialog() == DialogResult.OK)
             {
-                var record = new ManipulationRecord {
+                var record = new ManipulationRecord
+                {
                     SamplingRate = _sampleRateProxy,
-                    Time = _timeLog, Force = _forceLog, Angle = _angleLog
+                    Time = _timeLog,
+                    Force = _forceLog,
+                    Angle = _angleLog
                 };
-                File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true }));
+
+                File.WriteAllText(
+                    sfd.FileName,
+                    JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true })
+                );
+
                 MessageBox.Show("Kayıt Başarılı.");
             }
         }
@@ -255,6 +348,7 @@ namespace CervicalForceSim
             _isAcquiring = false;
             _plotTimer.Stop();
             try { new MccBoard(BoardNum).StopBackground(FunctionType.AiFunction); } catch { }
+
             btnStart.Enabled = true;
             btnStop.Enabled = false;
             btnSaveCsv.Enabled = true;
@@ -263,15 +357,27 @@ namespace CervicalForceSim
 
         private void LoadCalibration()
         {
-            if (!File.Exists("calibration.json")) return;
-            try {
-                var config = JsonSerializer.Deserialize<CalibrationConfig>(File.ReadAllText("calibration.json"), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (config != null) {
+            // Çalışma dizini değişirse diye exe yanını da dene
+            string p1 = Path.Combine(AppContext.BaseDirectory, "calibration.json");
+            string p2 = "calibration.json";
+            string? path = File.Exists(p1) ? p1 : (File.Exists(p2) ? p2 : null);
+
+            if (path == null) return;
+
+            try
+            {
+                var config = JsonSerializer.Deserialize<CalibrationConfig>(
+                    File.ReadAllText(path),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (config != null)
+                {
                     _forceSlope = config.Force.Slope; _forceOffset = config.Force.Offset;
                     _angleSlope = config.Angle.Slope; _angleOffset = config.Angle.Offset;
                     numTargetForce.Value = config.DefaultTargetForce;
                 }
-            } catch { }
+            }
+            catch { }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -311,18 +417,21 @@ namespace CervicalForceSim
         }
     }
 
-    public class CalibrationConfig {
+    public class CalibrationConfig
+    {
         public SensorConfig Force { get; set; } = new SensorConfig();
         public SensorConfig Angle { get; set; } = new SensorConfig();
         public decimal DefaultTargetForce { get; set; } = 22;
     }
 
-    public class SensorConfig {
+    public class SensorConfig
+    {
         public double Slope { get; set; } = 1.0;
         public double Offset { get; set; } = 0.0;
     }
 
-    public class ManipulationRecord {
+    public class ManipulationRecord
+    {
         public DateTime Date { get; set; } = DateTime.Now;
         public int SamplingRate { get; set; }
         public List<double> Time { get; set; } = new List<double>();

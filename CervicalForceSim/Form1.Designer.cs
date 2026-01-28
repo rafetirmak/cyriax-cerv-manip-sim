@@ -7,7 +7,7 @@
         // Ana Taşıyıcılar
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.PictureBox canvas;
-        
+
         // Sol Panel Kontrolleri
         private System.Windows.Forms.GroupBox grpAcquisition;
         private System.Windows.Forms.Button btnStart;

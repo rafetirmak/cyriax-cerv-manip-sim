@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CervicalForceSim")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f76c4f26598852bf7ce824a51948e2da397bc58b")]
 [assembly: System.Reflection.AssemblyProductAttribute("CervicalForceSim")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CervicalForceSim")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
