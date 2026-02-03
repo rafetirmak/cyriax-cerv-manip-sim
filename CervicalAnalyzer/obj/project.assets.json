@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "G:\\Drive'ım\\B002_Arastirmalarim_002\\004 Cyriax_Calismalarim\\CYRIAX Cervical Spine Force Similator Makalesi\\004 cervical force simulator Source code\\CervicalAnalyzer\\CervicalAnalyzer.csproj",
+      "projectUniqueName": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalAnalyzer\\CervicalAnalyzer.csproj",
       "projectName": "CervicalAnalyzer",
-      "projectPath": "G:\\Drive'ım\\B002_Arastirmalarim_002\\004 Cyriax_Calismalarim\\CYRIAX Cervical Spine Force Similator Makalesi\\004 cervical force simulator Source code\\CervicalAnalyzer\\CervicalAnalyzer.csproj",
+      "projectPath": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalAnalyzer\\CervicalAnalyzer.csproj",
       "packagesPath": "C:\\Users\\RAFET IRMAK\\.nuget\\packages\\",
-      "outputPath": "G:\\Drive'ım\\B002_Arastirmalarim_002\\004 Cyriax_Calismalarim\\CYRIAX Cervical Spine Force Similator Makalesi\\004 cervical force simulator Source code\\CervicalAnalyzer\\obj\\",
+      "outputPath": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalAnalyzer\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\RAFET IRMAK\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CervicalAnalyzer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+38a5f5e105d33ea569c0a5b57fbbf3fd2e51d98e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7db7a0472c01fa05381cee1b595c4adf75876a90")]
 [assembly: System.Reflection.AssemblyProductAttribute("CervicalAnalyzer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CervicalAnalyzer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

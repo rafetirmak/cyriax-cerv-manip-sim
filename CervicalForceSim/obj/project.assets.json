@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
+      "projectUniqueName": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
       "projectName": "CervicalForceSim",
-      "projectPath": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
+      "projectPath": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
       "packagesPath": "C:\\Users\\RAFET IRMAK\\.nuget\\packages\\",
-      "outputPath": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\obj\\",
+      "outputPath": "C:\\Users\\RAFET IRMAK\\Desktop\\004 cervical force simulator Source code\\CervicalForceSim\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\RAFET IRMAK\\AppData\\Roaming\\NuGet\\NuGet.Config"
