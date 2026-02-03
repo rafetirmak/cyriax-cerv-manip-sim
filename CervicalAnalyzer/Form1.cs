@@ -29,13 +29,14 @@ namespace CervicalAnalyzer
         private float _minAngle = 0, _maxAngle = 120;
 
         // --- ZONES ---
-        private float _zoneForceTop = 24.0f;
-        private float _zoneForceBottom = 20.0f;
+        private float _zoneForceTop = 12.0f;
+        private float _zoneForceBottom = 8.0f;
         private float _zoneTimeStart = 3.0f;
         private float _zoneTimeEnd = 5.0f;
 
         // --- MOUSE ---
         private enum DragMode { None, ForceTop, ForceBottom, TimeLeft, TimeRight, PanTime }
+        
         private DragMode _currentDrag = DragMode.None;
         private Point _lastMousePos;
 
@@ -142,7 +143,7 @@ namespace CervicalAnalyzer
                 string txtRot = "Rotation Zone";
                 float txtX = xZ1 + ((xZ2 - xZ1) / 2) - (g.MeasureString(txtRot, this.Font).Width / 2);
                 if(txtX < xZ1) txtX = xZ1;
-                g.DrawString(txtRot, new Font("Arial", 8, FontStyle.Bold), Brushes.Blue, txtX, chartArea.Top + 2);
+                g.DrawString(txtRot, new Font("Arial", 11, FontStyle.Bold), Brushes.Blue, txtX, chartArea.Top + 2);
             }
 
             float yZ_Top = ValToY_Force(_zoneForceTop);
@@ -153,7 +154,7 @@ namespace CervicalAnalyzer
             {
                 g.DrawLine(pZone, chartArea.Left, yZ_Top, chartArea.Right, yZ_Top);
                 g.DrawLine(pZone, chartArea.Left, yZ_Bot, chartArea.Right, yZ_Bot);
-                g.DrawString("Max Traction Zone", new Font("Arial", 8, FontStyle.Bold), Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
+                g.DrawString("Max Traction Zone", new Font("Arial", 11, FontStyle.Bold), Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
             }
 
             // --- AXES ---
@@ -214,7 +215,8 @@ namespace CervicalAnalyzer
 
                 string valText = isForceLine ? $"{rawVal:F1}kg" : $"{rawVal:F0}°";
                 string fullText = $"{title}\n{valText}";
-                Font fontMarker = new Font("Segoe UI", 8, FontStyle.Bold);
+                // MARKER FONT SIZE
+                Font fontMarker = new Font("Segoe UI", 11, FontStyle.Bold);
                 SizeF size = g.MeasureString(fullText, fontMarker);
                 
                 float textY = flipArrow ? arrowY_Start + 2 : arrowY_Start - size.Height - 2;
@@ -307,6 +309,7 @@ namespace CervicalAnalyzer
                 {
                     case DragMode.ForceTop: if (valF > _zoneForceBottom) _zoneForceTop = valF; break;
                     case DragMode.ForceBottom: if (valF < _zoneForceTop) _zoneForceBottom = valF; break;
+
                     case DragMode.TimeLeft: if (valT < _zoneTimeEnd) _zoneTimeStart = valT; break;
                     case DragMode.TimeRight: if (valT > _zoneTimeStart) _zoneTimeEnd = valT; break;
                     case DragMode.PanTime:

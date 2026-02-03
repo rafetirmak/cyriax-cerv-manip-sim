@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\RAFET IRMAK\\Desktop\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj": {}
+    "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj": {}
   },
   "projects": {
-    "C:\\Users\\RAFET IRMAK\\Desktop\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj": {
+    "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\RAFET IRMAK\\Desktop\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
+        "projectUniqueName": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
         "projectName": "CervicalForceSim",
-        "projectPath": "C:\\Users\\RAFET IRMAK\\Desktop\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
+        "projectPath": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\CervicalForceSim.csproj",
         "packagesPath": "C:\\Users\\RAFET IRMAK\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\RAFET IRMAK\\Desktop\\cervical force simulator Source code\\CervicalForceSim\\obj\\",
+        "outputPath": "G:\\Drive'ım\\B002-prog-01 arastirma\\cervical force simulator Source code\\CervicalForceSim\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\RAFET IRMAK\\AppData\\Roaming\\NuGet\\NuGet.Config"
