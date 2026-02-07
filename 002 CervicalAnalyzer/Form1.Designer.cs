@@ -47,7 +47,7 @@
             this.panelTop.Controls.Add(this.grpMarkers);
             this.panelTop.Controls.Add(this.btnLoad);
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelTop.Height = 110; 
+            this.panelTop.Height = 170; 
             this.panelTop.BackColor = System.Drawing.Color.WhiteSmoke;
             this.panelTop.Padding = new System.Windows.Forms.Padding(10);
             

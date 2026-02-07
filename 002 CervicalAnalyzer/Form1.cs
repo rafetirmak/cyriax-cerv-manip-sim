@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging; // Resim kaydı için gerekli
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,7 +18,7 @@ namespace CervicalAnalyzer
         private List<double> _forceData = new List<double>();
         private List<double> _angleData = new List<double>();
 
-        // --- RAW DATA BACKUP ---
+        // --- RAW DATA BACKUP (Sıfırlama işlemleri için) ---
         private List<double> _rawForce = new List<double>();
         private List<double> _rawAngle = new List<double>();
 
@@ -48,31 +49,34 @@ namespace CervicalAnalyzer
         private DragMode _currentDrag = DragMode.None;
         private Point _lastMousePos;
 
+        // --- OPTIMIZATION: CACHED FONTS ---
+        private Font _fontAxis;      
+        private Font _fontZone;      
+        private Font _fontMarker;    
+
         public Form1()
         {
             InitializeComponent();
             this.DoubleBuffered = true; 
             
-            // --- GÖRÜNÜM DÜZELTMESİ (UI FIX) ---
-            // GroupBox'ın boyutunu kod ile zorla büyütüyoruz ki alttaki butonlar sığsın.
-            this.grpMarkers.Size = new Size(300, 140); // Yükseklik 90'dan 140'a çıkarıldı
+            // --- FONT OPTIMIZATION ---
+            _fontAxis = new Font("Arial", 8);
+            _fontZone = new Font("Arial", 11, FontStyle.Bold);
+            _fontMarker = new Font("Segoe UI", 11, FontStyle.Bold);
 
-            // 1. Kuvvet Sıfırlama Butonu
+            // --- UI: ZERO SETTING BUTTONS ---
             rbSetZeroForce = new RadioButton();
             rbSetZeroForce.Text = "🔧 Zero Force";
             rbSetZeroForce.AutoSize = true;
-            rbSetZeroForce.Location = new Point(15, 80); // Y koordinatı aşağı çekildi
+            rbSetZeroForce.Location = new Point(15, 80); 
             
-            // 2. Açı Sıfırlama Butonu
             rbSetZeroAngle = new RadioButton();
             rbSetZeroAngle.Text = "📐 Zero Angle";
             rbSetZeroAngle.AutoSize = true;
-            rbSetZeroAngle.Location = new Point(135, 80); // Y koordinatı aşağı çekildi
+            rbSetZeroAngle.Location = new Point(135, 80); 
 
-            // Gruba ekle
             this.grpMarkers.Controls.Add(rbSetZeroForce);
             this.grpMarkers.Controls.Add(rbSetZeroAngle);
-            // -----------------------------------
 
             // Events
             canvas.MouseDown += Canvas_MouseDown;
@@ -82,7 +86,9 @@ namespace CervicalAnalyzer
             canvas.Resize += (s, e) => canvas.Invalidate();
         }
 
-        // LOAD JSON
+        // ---------------------------------------------------------
+        // 1. DATA LOADING
+        // ---------------------------------------------------------
         private void btnLoad_Click(object? sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
@@ -105,7 +111,7 @@ namespace CervicalAnalyzer
                     _forceData = record.Force ?? new List<double>();
                     _angleData = record.Angle ?? new List<double>();
                     
-                    // --- YEDEKLEME ---
+                    // Yedekle
                     _rawForce = new List<double>(_forceData);
                     _rawAngle = new List<double>(_angleData);
 
@@ -128,20 +134,14 @@ namespace CervicalAnalyzer
                         double minA = _angleData.Count > 0 ? _angleData.Min() : 0;
                         double maxA = _angleData.Count > 0 ? _angleData.Max() : 90;
 
-                        // --- SKALA AYARLARI (45 Derece & Orantısal Sıfır) ---
-                        
-                        // 1. KUVVET SKALASI (Max 30)
+                        // Skala Ayarları
                         _maxForce = (float)Math.Max(30, maxF * 1.1);
-                        _minForce = -(_maxForce / 6.0f); // Orantısal negatif alan
+                        _minForce = -(_maxForce / 6.0f); 
                         if (minF < _minForce) _minForce = (float)minF; 
 
-                        // 2. AÇI SKALASI (BURASI DEĞİŞTİ: Max 45)
-                        // Kullanıcı isteği: Varsayılan max açı 90 yerine 45 olsun.
                         _maxAngle = (float)Math.Max(45, maxA * 1.1); 
-                        
-                        _minAngle = -(_maxAngle / 6.0f); // Orantısal negatif alan
+                        _minAngle = -(_maxAngle / 6.0f); 
                         if (minA < _minAngle) _minAngle = (float)minA;
-                        // ----------------------------------------------------
                         
                         _zoneTimeStart = _minTime + (_maxTime - _minTime) * 0.4f;
                         _zoneTimeEnd = _minTime + (_maxTime - _minTime) * 0.6f;
@@ -157,15 +157,25 @@ namespace CervicalAnalyzer
             catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
         }
 
-        // DRAW
-      private void Canvas_Paint(object? sender, PaintEventArgs e)
+        // ---------------------------------------------------------
+        // 2. DRAWING LOGIC (REFACTORED)
+        // ---------------------------------------------------------
+        
+        // Ekran çizimi
+        private void Canvas_Paint(object? sender, PaintEventArgs e)
         {
-            Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            DrawChart(e.Graphics, canvas.Width, canvas.Height);
+        }
 
-            float w = canvas.Width;
-            float h = canvas.Height;
+        // Ortak Çizim Metodu (Hem Ekran Hem PNG Kaydı İçin)
+        private void DrawChart(Graphics g, int w, int h)
+        {
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            
+            // Arka planı temizle (PNG kaydı için kritik)
+            g.Clear(Color.White);
+
             float padLeft = 40, padRight = 40, padBot = 30, padTop = 40;
             RectangleF chartArea = new RectangleF(padLeft, padTop, w - padLeft - padRight, h - padTop - padBot);
 
@@ -173,77 +183,76 @@ namespace CervicalAnalyzer
             float ValToY_Force(float f) => chartArea.Bottom - ((f - _minForce) / (_maxForce - _minForce)) * chartArea.Height;
             float ValToY_Angle(float a) => chartArea.Bottom - ((a - _minAngle) / (_maxAngle - _minAngle)) * chartArea.Height;
 
-            // --- GRID & ÇENTİKLER (YENİ EKLENEN KISIM) ---
-            
-            // 1. KUVVET EKSENİ (Sol - Kırmızı) - Her 5 birimde bir çizgi
+            // A. GRID & EKSENLER
+            // ------------------
+            // 1. Kuvvet (Kırmızı)
             float stepF = 5.0f;
-            // Başlangıç noktasını 5'in katına yuvarla
             float startF = (float)Math.Floor(_minForce / stepF) * stepF;
-            
             for (float f = startF; f <= _maxForce; f += stepF)
             {
                 float y = ValToY_Force(f);
                 if (y < chartArea.Top || y > chartArea.Bottom) continue;
 
-                // Yatay Grid Çizgisi (Hafif Kırmızı)
                 using (Pen pGrid = new Pen(Color.FromArgb(20, 255, 0, 0), 1))
                     g.DrawLine(pGrid, chartArea.Left, y, chartArea.Right, y);
 
-                // Etiket (0, 5, 10...)
-                g.DrawString($"{f:F0}", new Font("Arial", 8), Brushes.Red, 2, y - 6);
+                g.DrawString($"{f:F0}", _fontAxis, Brushes.Red, 2, y - 6);
             }
 
-            // 2. AÇI EKSENİ (Sağ - Mavi) - Her 5 derecede bir çentik
+            // 2. Açı (Mavi)
             float stepA = 5.0f;
             float startA = (float)Math.Floor(_minAngle / stepA) * stepA;
-
             for (float a = startA; a <= _maxAngle; a += stepA)
             {
                 float y = ValToY_Angle(a);
                 if (y < chartArea.Top || y > chartArea.Bottom) continue;
 
-                // Çentik (Sadece sağ kenarda 5px'lik çizgi)
                 using (Pen pTick = new Pen(Color.Blue, 1))
                     g.DrawLine(pTick, chartArea.Right, y, chartArea.Right - 6, y);
 
-                // Etiket (0°, 5°, 10°...)
-                g.DrawString($"{a:F0}°", new Font("Arial", 8), Brushes.Blue, w - 35, y - 6);
+                g.DrawString($"{a:F0}°", _fontAxis, Brushes.Blue, w - 35, y - 6);
             }
-            // ----------------------------------------------
 
-            // ZONES (Eski kod devam ediyor...)
+            // B. ZONES (Bölgeler)
+            // -------------------
             float xZ1 = ValToX(_zoneTimeStart);
             float xZ2 = ValToX(_zoneTimeEnd);
+            
+            // Rotation Zone
             using (SolidBrush bTime = new SolidBrush(Color.FromArgb(20, 0, 0, 255)))
                 g.FillRectangle(bTime, xZ1, chartArea.Top, xZ2 - xZ1, chartArea.Height);
+            
             using (Pen pTime = new Pen(Color.FromArgb(100, 0, 0, 255), 1) { DashStyle = DashStyle.Dash })
             {
                 g.DrawLine(pTime, xZ1, chartArea.Top, xZ1, chartArea.Bottom);
                 g.DrawLine(pTime, xZ2, chartArea.Top, xZ2, chartArea.Bottom);
                 
                 string txtRot = "Rotation Zone";
-                float txtX = xZ1 + ((xZ2 - xZ1) / 2) - (g.MeasureString(txtRot, this.Font).Width / 2);
+                float txtX = xZ1 + ((xZ2 - xZ1) / 2) - (g.MeasureString(txtRot, _fontZone).Width / 2);
                 if(txtX < xZ1) txtX = xZ1;
-                g.DrawString(txtRot, new Font("Arial", 11, FontStyle.Bold), Brushes.Blue, txtX, chartArea.Top + 2);
+                g.DrawString(txtRot, _fontZone, Brushes.Blue, txtX, chartArea.Top + 2);
             }
 
+            // Force Zone
             float yZ_Top = ValToY_Force(_zoneForceTop);
             float yZ_Bot = ValToY_Force(_zoneForceBottom);
             using (SolidBrush bForce = new SolidBrush(Color.FromArgb(30, 50, 50, 50)))
                 g.FillRectangle(bForce, chartArea.Left, yZ_Top, chartArea.Width, yZ_Bot - yZ_Top);
+            
             using (Pen pZone = new Pen(Color.Gray, 1) { DashStyle = DashStyle.Dash })
             {
                 g.DrawLine(pZone, chartArea.Left, yZ_Top, chartArea.Right, yZ_Top);
                 g.DrawLine(pZone, chartArea.Left, yZ_Bot, chartArea.Right, yZ_Bot);
-                g.DrawString("Max Traction Zone", new Font("Arial", 11, FontStyle.Bold), Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
+                g.DrawString("Max Traction Zone", _fontZone, Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
             }
 
-            // AXES (Eski statik yazıları kaldırdık, yukarıdaki döngü hallediyor)
+            // Çerçeve
             g.DrawRectangle(Pens.Black, Rectangle.Round(chartArea));
             using (Pen pAxis = new Pen(Color.Red, 2)) g.DrawLine(pAxis, chartArea.Left, chartArea.Top, chartArea.Left, chartArea.Bottom);
             using (Pen pAxis = new Pen(Color.Blue, 2)) g.DrawLine(pAxis, chartArea.Right, chartArea.Top, chartArea.Right, chartArea.Bottom);
-            
-            // DATA (Grafik Çizimi)
+
+            // C. DATA PLOTTING
+            // ----------------
             if (_timeData.Count > 1)
             {
                 using (Pen pF = new Pen(Color.Red, 2))
@@ -262,7 +271,8 @@ namespace CervicalAnalyzer
                 }
             }
 
-            // MARKERS (Aynen Kalıyor)
+            // D. MARKERS
+            // ----------
             void DrawFancyMarker(int idx, Color c, string title, bool isForceLine)
             {
                 if(idx < 0 || idx >= _timeData.Count) return;
@@ -285,7 +295,7 @@ namespace CervicalAnalyzer
 
                 using(Pen pArrow = new Pen(c, 2))
                 {
-                    System.Drawing.Drawing2D.AdjustableArrowCap bigArrow = new System.Drawing.Drawing2D.AdjustableArrowCap(4, 4);
+                    AdjustableArrowCap bigArrow = new AdjustableArrowCap(4, 4);
                     pArrow.CustomEndCap = bigArrow;
                     g.DrawLine(pArrow, x, arrowY_Start, x, arrowY_End);
                 }
@@ -293,15 +303,15 @@ namespace CervicalAnalyzer
                 string valText = isForceLine ? $"{rawVal:F1}kg" : $"{rawVal:F0}°";
                 string fullText = $"{title}\n{valText}";
                 
-                Font fontMarker = new Font("Segoe UI", 11, FontStyle.Bold);
-                SizeF size = g.MeasureString(fullText, fontMarker);
+                SizeF size = g.MeasureString(fullText, _fontMarker);
                 
                 float textY = flipArrow ? arrowY_Start + 2 : arrowY_Start - size.Height - 2;
                 float textX = x - (size.Width / 2);
 
                 using(SolidBrush bBg = new SolidBrush(Color.FromArgb(200, 255, 255, 255)))
                     g.FillRectangle(bBg, textX - 2, textY - 2, size.Width + 4, size.Height + 4);
-                g.DrawString(fullText, fontMarker, new SolidBrush(c), textX, textY);
+                
+                g.DrawString(fullText, _fontMarker, new SolidBrush(c), textX, textY);
             }
 
             DrawFancyMarker(_idxTraStart, Color.Green, "Tra. Start", true);
@@ -310,7 +320,9 @@ namespace CervicalAnalyzer
             DrawFancyMarker(_idxManip, Color.Purple, "Manip.", true);
         }
 
-        // MOUSE
+        // ---------------------------------------------------------
+        // 3. MOUSE INTERACTION
+        // ---------------------------------------------------------
         private void Canvas_MouseDown(object? sender, MouseEventArgs e)
         {
             if (_timeData.Count == 0) return;
@@ -435,7 +447,9 @@ namespace CervicalAnalyzer
             _currentDrag = DragMode.None;
         }
 
-        // ANALYSIS REPORT
+        // ---------------------------------------------------------
+        // 4. REPORTING & SAVING (ANALYZER)
+        // ---------------------------------------------------------
         private void btnAnalyze_Click(object? sender, EventArgs e)
         {
             if (_idxTraStart < 0 || _idxRotStart < 0 || _idxRotPeak < 0 || _idxManip < 0)
@@ -444,31 +458,90 @@ namespace CervicalAnalyzer
                 return;
             }
 
+            // A. HESAPLAMALAR
             double fManip = _forceData[_idxManip];
             double angPeak = _angleData[_idxRotPeak];
+            double tTraStart = _timeData[_idxTraStart];
             double tRotStart = _timeData[_idxRotStart];
             double tRotPeak = _timeData[_idxRotPeak];
             double tManip = _timeData[_idxManip];
 
+            bool seqCorrect = (tManip >= tRotPeak); // Manipülasyon, rotasyon zirvesinden sonra mı?
+            string forceStatus = "OK";
+            if (fManip < _zoneForceBottom) forceStatus = "LOW";
+            else if (fManip > (_zoneForceTop + 2.0)) forceStatus = "HIGH";
+
+            // B. MESAJ KUTUSU GÖSTERİMİ
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("--- MANIPULATION ANALYSIS ---");
-            sb.AppendLine($"Traction Start: {_timeData[_idxTraStart]:F2}s");
+            sb.AppendLine($"Traction Start: {tTraStart:F2}s");
             sb.AppendLine($"Rotation Duration: {(tRotPeak - tRotStart):F2}s");
             sb.AppendLine($"Max Rotation: {angPeak:F1}°");
             sb.AppendLine($"Manipulation Force: {fManip:F1} kgf");
             sb.AppendLine("");
+            sb.AppendLine(seqCorrect ? "[OK] Sequence Correct" : "[!] WARNING: Manip before rotation peak!");
+            sb.AppendLine($"Force Status: {forceStatus}");
+            
+           // MessageBox.Show(sb.ToString(), "Report");
 
-            if (tManip < tRotPeak) sb.AppendLine("[!] WARNING: Manipulation occurred BEFORE full rotation!");
-            else sb.AppendLine("[OK] Sequence Correct (Rotation -> Manipulation)");
+            // C. KAYDETME İŞLEMİ (JSON + PNG)
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Title = "Save Analysis Report & Chart";
+                sfd.Filter = "JSON Report|*.json";
+                sfd.FileName = $"Analysis_{DateTime.Now:yyyyMMdd_HHmm}";
 
-            if (fManip < _zoneForceBottom) sb.AppendLine("[X] FORCE LOW (Below Zone)");
-            else if (fManip > (_zoneForceTop + 2.0)) sb.AppendLine("[X] FORCE HIGH (Above Zone)");
-            else sb.AppendLine("[OK] Force in Target Zone");
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    string jsonPath = sfd.FileName;
+                    string imagePath = jsonPath.Replace(".json", ".png");
 
-            MessageBox.Show(sb.ToString());
+                    try
+                    {
+                        // 1. JSON Kaydetme
+                        var result = new AnalysisResult
+                        {
+                            AnalysisDate = DateTime.Now,
+                            TractionStart_Time = tTraStart,
+                            RotationStart_Time = tRotStart,
+                            RotationPeak_Time = tRotPeak,
+                            Manipulation_Time = tManip,
+                            Manipulation_Force = fManip,
+                            Max_Rotation_Angle = angPeak,
+                            Rotation_Duration = tRotPeak - tRotStart,
+                            IsSequenceCorrect = seqCorrect,
+                            ForceZoneStatus = forceStatus
+                        };
+
+                        string jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(jsonPath, jsonString);
+
+                        // 2. PNG Kaydetme (DrawChart Metodunu Kullanarak)
+                        // Ekrandaki canvas boyutunda bir Bitmap oluştur
+                        using (Bitmap bmp = new Bitmap(canvas.Width, canvas.Height))
+                        {
+                            using (Graphics g = Graphics.FromImage(bmp))
+                            {
+                                // Aynı çizim fonksiyonunu çağır!
+                                DrawChart(g, canvas.Width, canvas.Height);
+                            }
+                            bmp.Save(imagePath, ImageFormat.Png);
+                        }
+
+                        MessageBox.Show($"Saved!\nJSON: {Path.GetFileName(jsonPath)}\nIMG: {Path.GetFileName(imagePath)}", "Success");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error saving files: " + ex.Message);
+                    }
+                }
+            }
         }
     }
 
+    // --- HELPER CLASSES ---
+
+    // JSON Yükleme Sınıfı
     public class ManipulationRecord
     {
         public DateTime Date { get; set; } = DateTime.Now;
@@ -477,5 +550,20 @@ namespace CervicalAnalyzer
         public List<double> Time { get; set; } = new List<double>();
         public List<double> Force { get; set; } = new List<double>();
         public List<double> Angle { get; set; } = new List<double>();
+    }
+
+    // JSON Kaydetme Sınıfı (Sonuçlar)
+    public class AnalysisResult
+    {
+        public DateTime AnalysisDate { get; set; }
+        public double TractionStart_Time { get; set; }
+        public double RotationStart_Time { get; set; }
+        public double RotationPeak_Time { get; set; }
+        public double Manipulation_Time { get; set; }
+        public double Manipulation_Force { get; set; }
+        public double Max_Rotation_Angle { get; set; }
+        public double Rotation_Duration { get; set; }
+        public bool IsSequenceCorrect { get; set; }
+        public string ForceZoneStatus { get; set; } = "";
     }
 }
