@@ -514,7 +514,7 @@ namespace CervicalForceSim
         private void UpdateSamplingLabel()
         {
             if (lblSampling == null) return;
-            lblSampling.Text = $"Sampling: {SampleRate} Hz | Actual: {_sampleRateProxy} Hz | Display: {DisplayRate} Hz";
+            lblSampling.Text = $"Sampling: {SampleRate} Hz\r\nActual: {_sampleRateProxy} Hz\r\nDisplay: {DisplayRate} Hz";
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

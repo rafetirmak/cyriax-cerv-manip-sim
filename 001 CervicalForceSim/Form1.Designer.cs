@@ -1,4 +1,4 @@
-﻿namespace CervicalForceSim
+namespace CervicalForceSim
 {
     partial class Form1
     {
@@ -93,7 +93,7 @@
             // 
             this.splitContainer1.Panel2.Controls.Add(this.canvas);
             this.splitContainer1.Size = new System.Drawing.Size(1000, 600);
-            this.splitContainer1.SplitterDistance = 220; // Sol panel genişliği
+            this.splitContainer1.SplitterDistance = 280; // Sol panel genişliği
             this.splitContainer1.TabIndex = 0;
 
             // 
@@ -106,7 +106,7 @@
             this.grpAcquisition.Dock = System.Windows.Forms.DockStyle.Top;
             this.grpAcquisition.Location = new System.Drawing.Point(10, 10);
             this.grpAcquisition.Name = "grpAcquisition";
-            this.grpAcquisition.Size = new System.Drawing.Size(200, 180);
+            this.grpAcquisition.Size = new System.Drawing.Size(260, 180);
             this.grpAcquisition.TabIndex = 0;
             this.grpAcquisition.TabStop = false;
             this.grpAcquisition.Text = "Acquisition Control";
@@ -116,7 +116,7 @@
             // 
             this.btnStart.Location = new System.Drawing.Point(15, 30);
             this.btnStart.Name = "btnStart";
-            this.btnStart.Size = new System.Drawing.Size(170, 35);
+            this.btnStart.Size = new System.Drawing.Size(230, 35);
             this.btnStart.TabIndex = 0;
             this.btnStart.Text = "START";
             this.btnStart.BackColor = System.Drawing.Color.LightGreen;
@@ -128,7 +128,7 @@
             // 
             this.btnStop.Location = new System.Drawing.Point(15, 71);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(170, 35);
+            this.btnStop.Size = new System.Drawing.Size(230, 35);
             this.btnStop.TabIndex = 1;
             this.btnStop.Text = "STOP";
             this.btnStop.BackColor = System.Drawing.Color.LightCoral;
@@ -140,7 +140,7 @@
             // 
             this.btnSaveCsv.Location = new System.Drawing.Point(15, 112);
             this.btnSaveCsv.Name = "btnSaveCsv";
-            this.btnSaveCsv.Size = new System.Drawing.Size(170, 35);
+            this.btnSaveCsv.Size = new System.Drawing.Size(230, 35);
             this.btnSaveCsv.TabIndex = 2;
             this.btnSaveCsv.Text = "SAVE DATA (.JSON)";
             this.btnSaveCsv.UseVisualStyleBackColor = true;
@@ -166,7 +166,7 @@
             this.grpValues.Dock = System.Windows.Forms.DockStyle.Top;
             this.grpValues.Location = new System.Drawing.Point(10, 190);
             this.grpValues.Name = "grpValues";
-            this.grpValues.Size = new System.Drawing.Size(200, 100);
+            this.grpValues.Size = new System.Drawing.Size(260, 100);
             this.grpValues.TabIndex = 1;
             this.grpValues.TabStop = false;
             this.grpValues.Text = "Live Values";
@@ -186,7 +186,7 @@
             // 
             this.txtForceVal.Location = new System.Drawing.Point(90, 27);
             this.txtForceVal.Name = "txtForceVal";
-            this.txtForceVal.Size = new System.Drawing.Size(95, 23);
+            this.txtForceVal.Size = new System.Drawing.Size(155, 23);
             this.txtForceVal.TabIndex = 1;
             this.txtForceVal.ReadOnly = true;
             this.txtForceVal.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -206,7 +206,7 @@
             // 
             this.txtAngleVal.Location = new System.Drawing.Point(90, 62);
             this.txtAngleVal.Name = "txtAngleVal";
-            this.txtAngleVal.Size = new System.Drawing.Size(95, 23);
+            this.txtAngleVal.Size = new System.Drawing.Size(155, 23);
             this.txtAngleVal.TabIndex = 3;
             this.txtAngleVal.ReadOnly = true;
             this.txtAngleVal.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -222,7 +222,7 @@
             this.grpSettings.Dock = System.Windows.Forms.DockStyle.Top;
             this.grpSettings.Location = new System.Drawing.Point(10, 290);
             this.grpSettings.Name = "grpSettings";
-            this.grpSettings.Size = new System.Drawing.Size(200, 155);
+            this.grpSettings.Size = new System.Drawing.Size(260, 155);
             this.grpSettings.TabIndex = 2;
             this.grpSettings.TabStop = false;
             this.grpSettings.Text = "Settings";
@@ -255,7 +255,7 @@
             this.numTargetForce.Location = new System.Drawing.Point(15, 85);
             this.numTargetForce.Name = "numTargetForce";
             this.numTargetForce.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
-            this.numTargetForce.Size = new System.Drawing.Size(170, 23);
+            this.numTargetForce.Size = new System.Drawing.Size(230, 23);
             this.numTargetForce.TabIndex = 2;
             this.numTargetForce.Value = new decimal(new int[] { 22, 0, 0, 0 });
 
@@ -264,7 +264,7 @@
             // 
             this.btnZeroForce.Location = new System.Drawing.Point(15, 118);
             this.btnZeroForce.Name = "btnZeroForce";
-            this.btnZeroForce.Size = new System.Drawing.Size(80, 27);
+            this.btnZeroForce.Size = new System.Drawing.Size(110, 27);
             this.btnZeroForce.TabIndex = 3;
             this.btnZeroForce.Text = "Zero F";
             this.btnZeroForce.UseVisualStyleBackColor = true;
@@ -272,9 +272,9 @@
             // 
             // btnZeroAngle
             // 
-            this.btnZeroAngle.Location = new System.Drawing.Point(105, 118);
+            this.btnZeroAngle.Location = new System.Drawing.Point(135, 118);
             this.btnZeroAngle.Name = "btnZeroAngle";
-            this.btnZeroAngle.Size = new System.Drawing.Size(80, 27);
+            this.btnZeroAngle.Size = new System.Drawing.Size(110, 27);
             this.btnZeroAngle.TabIndex = 4;
             this.btnZeroAngle.Text = "Zero A";
             this.btnZeroAngle.UseVisualStyleBackColor = true;
@@ -285,9 +285,9 @@
             this.lblSampling.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblSampling.Location = new System.Drawing.Point(10, 445);
             this.lblSampling.Name = "lblSampling";
-            this.lblSampling.Size = new System.Drawing.Size(200, 35);
+            this.lblSampling.Size = new System.Drawing.Size(260, 60);
             this.lblSampling.TabIndex = 3;
-            this.lblSampling.Text = "Sampling: -";
+            this.lblSampling.Text = "Sampling: -\r\nActual: -\r\nDisplay: -";
             this.lblSampling.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
             // 
