@@ -58,8 +58,6 @@ namespace CervicalAnalyzer
         private int _idxManip = -1;    
 
         // --- UI CONTROLS (Manual) ---
-        private RadioButton rbSetZeroForce;
-        private RadioButton rbSetZeroAngle;
 
         // --- SCALES ---
         private float _minTime = 0, _maxTime = 10;
@@ -93,19 +91,6 @@ namespace CervicalAnalyzer
             _fontZone = new Font("Arial", 11, FontStyle.Bold);
             _fontMarker = new Font("Segoe UI", 11, FontStyle.Bold);
 
-            // --- UI: ZERO SETTING BUTTONS ---
-            rbSetZeroForce = new RadioButton();
-            rbSetZeroForce.Text = "🔧 Zero Force";
-            rbSetZeroForce.AutoSize = true;
-            rbSetZeroForce.Location = new Point(15, 80); 
-            
-            rbSetZeroAngle = new RadioButton();
-            rbSetZeroAngle.Text = "📐 Zero Angle";
-            rbSetZeroAngle.AutoSize = true;
-            rbSetZeroAngle.Location = new Point(135, 80); 
-
-            this.grpMarkers.Controls.Add(rbSetZeroForce);
-            this.grpMarkers.Controls.Add(rbSetZeroAngle);
 
             // Events
             canvas.MouseDown += Canvas_MouseDown;
@@ -127,12 +112,18 @@ namespace CervicalAnalyzer
         // ---------------------------------------------------------
         // 1. DATA LOADING
         // ---------------------------------------------------------
+        private string _lastLoadedDirectory = "";
+
         private void btnLoad_Click(object? sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Filter = "JSON Files|*.json";
-                if (ofd.ShowDialog() == DialogResult.OK) LoadJson(ofd.FileName);
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    _lastLoadedDirectory = Path.GetDirectoryName(ofd.FileName);
+                    LoadJson(ofd.FileName);
+                }
             }
         }
 
@@ -534,6 +525,14 @@ namespace CervicalAnalyzer
             // C. KAYDETME İŞLEMİ (JSON + PNG)
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
+                string baseDir = string.IsNullOrEmpty(_lastLoadedDirectory) ? AppDomain.CurrentDomain.BaseDirectory : _lastLoadedDirectory;
+                string reportsDir = Path.Combine(baseDir, "Reports");
+                if (!Directory.Exists(reportsDir))
+                {
+                    Directory.CreateDirectory(reportsDir);
+                }
+                
+                sfd.InitialDirectory = reportsDir;
                 sfd.Title = "Save Analysis Report & Chart";
                 sfd.Filter = "JSON Report|*.json";
                 sfd.FileName = $"Analysis_{DateTime.Now:yyyyMMdd_HHmm}";
@@ -580,6 +579,113 @@ namespace CervicalAnalyzer
                     catch (Exception ex)
                     {
                         MessageBox.Show("Error saving files: " + ex.Message);
+                    }
+                }
+            }
+        }
+
+        private void btnExportHtml_Click(object? sender, EventArgs e)
+        {
+            if (_idxTraStart < 0 || _idxRotStart < 0 || _idxRotPeak < 0 || _idxManip < 0)
+            {
+                MessageBox.Show("Please place all 4 markers before exporting the report.");
+                return;
+            }
+
+            // Calculations
+            double fManip = _forceData[_idxManip];
+            double angPeak = _angleData[_idxRotPeak];
+            double tTraStart = _timeData[_idxTraStart];
+            double tRotStart = _timeData[_idxRotStart];
+            double tRotPeak = _timeData[_idxRotPeak];
+            double tManip = _timeData[_idxManip];
+
+            bool seqCorrect = (tManip >= tRotPeak);
+            string forceStatus = "OK";
+            if (fManip < _zoneForceBottom) forceStatus = "LOW";
+            else if (fManip > (_zoneForceTop + 2.0)) forceStatus = "HIGH";
+
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                string baseDir = string.IsNullOrEmpty(_lastLoadedDirectory) ? AppDomain.CurrentDomain.BaseDirectory : _lastLoadedDirectory;
+                string reportsDir = Path.Combine(baseDir, "Reports");
+                if (!Directory.Exists(reportsDir))
+                {
+                    Directory.CreateDirectory(reportsDir);
+                }
+                
+                sfd.InitialDirectory = reportsDir;
+                sfd.Title = "Save HTML Report";
+                sfd.Filter = "HTML File|*.html";
+                sfd.FileName = $"AnalysisReport_{DateTime.Now:yyyyMMdd_HHmm}.html";
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        string base64Image = "";
+                        using (Bitmap bmp = new Bitmap(canvas.Width, canvas.Height))
+                        {
+                            using (Graphics g = Graphics.FromImage(bmp))
+                            {
+                                DrawChart(g, canvas.Width, canvas.Height);
+                            }
+                            using (MemoryStream ms = new MemoryStream())
+                            {
+                                bmp.Save(ms, ImageFormat.Png);
+                                byte[] imageBytes = ms.ToArray();
+                                base64Image = Convert.ToBase64String(imageBytes);
+                            }
+                        }
+
+                        StringBuilder html = new StringBuilder();
+                        html.AppendLine("<!DOCTYPE html>");
+                        html.AppendLine("<html><head><meta charset=\"UTF-8\">");
+                        html.AppendLine("<title>Cervical Analysis Report</title>");
+                        html.AppendLine("<style>");
+                        html.AppendLine("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f9f9f9; color: #333; }");
+                        html.AppendLine(".container { max-width: 1200px; margin: auto; background: #fff; padding: 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 8px; }");
+                        html.AppendLine("h1 { text-align: center; color: #2c3e50; }");
+                        html.AppendLine(".chart-container { text-align: center; margin-bottom: 40px; }");
+                        html.AppendLine("img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }");
+                        html.AppendLine("table { width: 100%; border-collapse: collapse; margin-top: 20px; }");
+                        html.AppendLine("th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0; }");
+                        html.AppendLine("th { background-color: #f1f5f9; color: #334155; font-weight: 600; }");
+                        html.AppendLine("tr:hover { background-color: #f8fafc; }");
+                        html.AppendLine(".status-ok { color: #15803d; font-weight: bold; }");
+                        html.AppendLine(".status-warn { color: #b91c1c; font-weight: bold; }");
+                        html.AppendLine("</style></head><body>");
+                        html.AppendLine("<div class=\"container\">");
+                        html.AppendLine("<h1>Cervical Analysis Report</h1>");
+                        
+                        html.AppendLine("<div class=\"chart-container\">");
+                        html.AppendLine($"<img src=\"data:image/png;base64,{base64Image}\" alt=\"Analysis Chart\" />");
+                        html.AppendLine("</div>");
+
+                        html.AppendLine("<h2>Analysis Data</h2>");
+                        html.AppendLine("<table>");
+                        html.AppendLine("<tr><th>Parameter</th><th>Value</th></tr>");
+                        html.AppendLine($"<tr><td>Traction Start Time</td><td>{tTraStart:F2} s</td></tr>");
+                        html.AppendLine($"<tr><td>Rotation Duration</td><td>{(tRotPeak - tRotStart):F2} s</td></tr>");
+                        html.AppendLine($"<tr><td>Max Rotation Angle</td><td>{angPeak:F1} &deg;</td></tr>");
+                        html.AppendLine($"<tr><td>Manipulation Force</td><td>{GetDisplayForce((float)fManip):F1} {GetForceUnitLabel()}</td></tr>");
+                        
+                        string seqStr = seqCorrect ? "<span class=\"status-ok\">[OK] Sequence Correct</span>" : "<span class=\"status-warn\">[!] WARNING: Manipulation before rotation peak!</span>";
+                        html.AppendLine($"<tr><td>Sequence Check</td><td>{seqStr}</td></tr>");
+                        
+                        string forceStr = forceStatus == "OK" ? "<span class=\"status-ok\">OK</span>" : $"<span class=\"status-warn\">{forceStatus}</span>";
+                        html.AppendLine($"<tr><td>Force Status</td><td>{forceStr}</td></tr>");
+                        html.AppendLine($"<tr><td>Date</td><td>{DateTime.Now:yyyy-MM-dd HH:mm:ss}</td></tr>");
+                        html.AppendLine("</table>");
+                        
+                        html.AppendLine("</div></body></html>");
+
+                        File.WriteAllText(sfd.FileName, html.ToString());
+                        MessageBox.Show("HTML report successfully generated and saved!", "Success");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error saving HTML report: " + ex.Message);
                     }
                 }
             }
