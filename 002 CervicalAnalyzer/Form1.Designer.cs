@@ -1,4 +1,4 @@
-﻿namespace CervicalAnalyzer
+namespace CervicalAnalyzer
 {
     partial class Form1
     {
@@ -10,6 +10,9 @@
         private System.Windows.Forms.Button btnLoad;
         private System.Windows.Forms.Button btnAnalyze;
         private System.Windows.Forms.GroupBox grpMarkers;
+        private System.Windows.Forms.GroupBox grpForceUnit;
+        private System.Windows.Forms.RadioButton rbUnitN;
+        private System.Windows.Forms.RadioButton rbUnitKgf;
         
         // --- 4 ADET İŞARETLEYİCİ SEÇENEĞİ ---
         private System.Windows.Forms.RadioButton rbTraStart;   // 1. Traction Start
@@ -34,15 +37,20 @@
             this.rbRotStart = new System.Windows.Forms.RadioButton();
             this.rbRotPeak = new System.Windows.Forms.RadioButton();
             this.rbManip = new System.Windows.Forms.RadioButton();
+            this.grpForceUnit = new System.Windows.Forms.GroupBox();
+            this.rbUnitN = new System.Windows.Forms.RadioButton();
+            this.rbUnitKgf = new System.Windows.Forms.RadioButton();
             
             ((System.ComponentModel.ISupportInitialize)(this.canvas)).BeginInit();
             this.panelTop.SuspendLayout();
             this.grpMarkers.SuspendLayout();
+            this.grpForceUnit.SuspendLayout();
             this.SuspendLayout();
 
             // 
             // panelTop
             // 
+            this.panelTop.Controls.Add(this.grpForceUnit);
             this.panelTop.Controls.Add(this.btnAnalyze);
             this.panelTop.Controls.Add(this.grpMarkers);
             this.panelTop.Controls.Add(this.btnLoad);
@@ -115,6 +123,31 @@
             this.btnAnalyze.Click += new System.EventHandler(this.btnAnalyze_Click);
 
             // 
+            // grpForceUnit
+            // 
+            this.grpForceUnit.Controls.Add(this.rbUnitN);
+            this.grpForceUnit.Controls.Add(this.rbUnitKgf);
+            this.grpForceUnit.Location = new System.Drawing.Point(600, 10);
+            this.grpForceUnit.Size = new System.Drawing.Size(120, 90);
+            this.grpForceUnit.Text = "Force Unit";
+            this.grpForceUnit.Font = new System.Drawing.Font("Segoe UI", 9F);
+            // 
+            // rbUnitN
+            // 
+            this.rbUnitN.Location = new System.Drawing.Point(15, 25);
+            this.rbUnitN.Text = "N (SI)";
+            this.rbUnitN.AutoSize = true;
+            this.rbUnitN.Checked = true;
+            this.rbUnitN.CheckedChanged += new System.EventHandler(this.UnitSelection_Changed);
+            // 
+            // rbUnitKgf
+            // 
+            this.rbUnitKgf.Location = new System.Drawing.Point(15, 55);
+            this.rbUnitKgf.Text = "kgf";
+            this.rbUnitKgf.AutoSize = true;
+            this.rbUnitKgf.CheckedChanged += new System.EventHandler(this.UnitSelection_Changed);
+
+            // 
             // canvas
             // 
             this.canvas.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -136,6 +169,8 @@
             this.panelTop.ResumeLayout(false);
             this.grpMarkers.ResumeLayout(false);
             this.grpMarkers.PerformLayout();
+            this.grpForceUnit.ResumeLayout(false);
+            this.grpForceUnit.PerformLayout();
             this.ResumeLayout(false);
         }
     }

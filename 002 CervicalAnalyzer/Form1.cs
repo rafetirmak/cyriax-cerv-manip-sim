@@ -11,8 +11,37 @@ using System.Text.Json;
 
 namespace CervicalAnalyzer
 {
+    public enum ForceUnit
+    {
+        Newton,
+        KilogramForce
+    }
+
     public partial class Form1 : Form
     {
+        // --- FORCE UNIT CONFIG ---
+        private ForceUnit _currentUnit = ForceUnit.Newton;
+        private const double KgfToNewton = 9.80665;
+
+        private float GetDisplayForce(float kgfValue)
+        {
+            if (_currentUnit == ForceUnit.Newton)
+                return (float)(kgfValue * KgfToNewton);
+            return kgfValue;
+        }
+
+        private float GetKgfFromDisplay(float displayValue)
+        {
+            if (_currentUnit == ForceUnit.Newton)
+                return (float)(displayValue / KgfToNewton);
+            return displayValue;
+        }
+
+        private string GetForceUnitLabel()
+        {
+            return _currentUnit == ForceUnit.Newton ? "N" : "kgf";
+        }
+
         // --- DATA ---
         private List<double> _timeData = new List<double>();
         private List<double> _forceData = new List<double>();
@@ -84,6 +113,15 @@ namespace CervicalAnalyzer
             canvas.MouseUp += Canvas_MouseUp;
             canvas.Paint += Canvas_Paint;
             canvas.Resize += (s, e) => canvas.Invalidate();
+        }
+
+        public void UnitSelection_Changed(object sender, EventArgs e)
+        {
+            if (rbUnitN != null && rbUnitKgf != null)
+            {
+                _currentUnit = rbUnitN.Checked ? ForceUnit.Newton : ForceUnit.KilogramForce;
+                canvas.Invalidate();
+            }
         }
 
         // ---------------------------------------------------------
@@ -185,6 +223,12 @@ namespace CervicalAnalyzer
 
             // A. GRID & EKSENLER
             // ------------------
+            string forceAxisLabel = $"Force ({GetForceUnitLabel()})";
+            using (Font titleFont = new Font("Segoe UI", 9, FontStyle.Bold))
+            {
+                g.DrawString(forceAxisLabel, titleFont, Brushes.Red, chartArea.Left - 5, chartArea.Top - 20);
+            }
+
             // 1. Kuvvet (Kırmızı)
             float stepF = 5.0f;
             float startF = (float)Math.Floor(_minForce / stepF) * stepF;
@@ -196,7 +240,8 @@ namespace CervicalAnalyzer
                 using (Pen pGrid = new Pen(Color.FromArgb(20, 255, 0, 0), 1))
                     g.DrawLine(pGrid, chartArea.Left, y, chartArea.Right, y);
 
-                g.DrawString($"{f:F0}", _fontAxis, Brushes.Red, 2, y - 6);
+                float dispF = GetDisplayForce(f);
+                g.DrawString($"{dispF:F1}", _fontAxis, Brushes.Red, 2, y - 6);
             }
 
             // 2. Açı (Mavi)
@@ -300,7 +345,7 @@ namespace CervicalAnalyzer
                     g.DrawLine(pArrow, x, arrowY_Start, x, arrowY_End);
                 }
 
-                string valText = isForceLine ? $"{rawVal:F1}kg" : $"{rawVal:F0}°";
+                string valText = isForceLine ? $"{GetDisplayForce(rawVal):F1} {GetForceUnitLabel()}" : $"{rawVal:F0}°";
                 string fullText = $"{title}\n{valText}";
                 
                 SizeF size = g.MeasureString(fullText, _fontMarker);
@@ -319,12 +364,7 @@ namespace CervicalAnalyzer
             DrawFancyMarker(_idxRotPeak, Color.DarkBlue, "Rot. Peak", false);
             DrawFancyMarker(_idxManip, Color.Purple, "Manip.", true);
 
-            // E. DISCLAIMER
-            string disclaimer = "Target zones are configurable and instructor-defined. They do not represent biologically validated tissue-tolerance limits, safety thresholds, or recommended clinical targets.";
-            using (Font fDisc = new Font("Segoe UI", 8, FontStyle.Italic))
-            {
-                g.DrawString(disclaimer, fDisc, Brushes.DimGray, chartArea.Left, h - 22);
-            }
+
         }
 
         // ---------------------------------------------------------
@@ -381,7 +421,7 @@ namespace CervicalAnalyzer
                             if (i < _rawForce.Count) 
                                 _forceData[i] = _rawForce[i] - forceOffset;
                         }
-                        MessageBox.Show($"Force Baseline Reset!\nTime: {clickedTime:F2}s\nOffset: {forceOffset:F2} kg");
+                        MessageBox.Show($"Force Baseline Reset!\nTime: {clickedTime:F2}s\nOffset: {GetDisplayForce((float)forceOffset):F2} {GetForceUnitLabel()}");
                     }
                 }
                 // 2. ANGLE RESET
@@ -484,7 +524,7 @@ namespace CervicalAnalyzer
             sb.AppendLine($"Traction Start: {tTraStart:F2}s");
             sb.AppendLine($"Rotation Duration: {(tRotPeak - tRotStart):F2}s");
             sb.AppendLine($"Max Rotation: {angPeak:F1}°");
-            sb.AppendLine($"Manipulation Force: {fManip:F1} kgf");
+            sb.AppendLine($"Manipulation Force: {GetDisplayForce((float)fManip):F1} {GetForceUnitLabel()}");
             sb.AppendLine("");
             sb.AppendLine(seqCorrect ? "[OK] Sequence Correct" : "[!] WARNING: Manip before rotation peak!");
             sb.AppendLine($"Force Status: {forceStatus}");
