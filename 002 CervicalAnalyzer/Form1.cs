@@ -218,7 +218,7 @@ namespace CervicalAnalyzer
             float xZ1 = ValToX(_zoneTimeStart);
             float xZ2 = ValToX(_zoneTimeEnd);
             
-            // Rotation Zone
+            // Rotation Target Zone
             using (SolidBrush bTime = new SolidBrush(Color.FromArgb(20, 0, 0, 255)))
                 g.FillRectangle(bTime, xZ1, chartArea.Top, xZ2 - xZ1, chartArea.Height);
             
@@ -227,7 +227,7 @@ namespace CervicalAnalyzer
                 g.DrawLine(pTime, xZ1, chartArea.Top, xZ1, chartArea.Bottom);
                 g.DrawLine(pTime, xZ2, chartArea.Top, xZ2, chartArea.Bottom);
                 
-                string txtRot = "Rotation Zone";
+                string txtRot = "Rotation Target Zone";
                 float txtX = xZ1 + ((xZ2 - xZ1) / 2) - (g.MeasureString(txtRot, _fontZone).Width / 2);
                 if(txtX < xZ1) txtX = xZ1;
                 g.DrawString(txtRot, _fontZone, Brushes.Blue, txtX, chartArea.Top + 2);
@@ -243,7 +243,7 @@ namespace CervicalAnalyzer
             {
                 g.DrawLine(pZone, chartArea.Left, yZ_Top, chartArea.Right, yZ_Top);
                 g.DrawLine(pZone, chartArea.Left, yZ_Bot, chartArea.Right, yZ_Bot);
-                g.DrawString("Max Traction Zone", _fontZone, Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
+                g.DrawString("Traction Target Zone", _fontZone, Brushes.DimGray, chartArea.Left + 5, yZ_Top + 2);
             }
 
             // Çerçeve
@@ -318,6 +318,13 @@ namespace CervicalAnalyzer
             DrawFancyMarker(_idxRotStart, Color.Orange, "Rot. Start", false); 
             DrawFancyMarker(_idxRotPeak, Color.DarkBlue, "Rot. Peak", false);
             DrawFancyMarker(_idxManip, Color.Purple, "Manip.", true);
+
+            // E. DISCLAIMER
+            string disclaimer = "Target zones are configurable and instructor-defined. They do not represent biologically validated tissue-tolerance limits, safety thresholds, or recommended clinical targets.";
+            using (Font fDisc = new Font("Segoe UI", 8, FontStyle.Italic))
+            {
+                g.DrawString(disclaimer, fDisc, Brushes.DimGray, chartArea.Left, h - 22);
+            }
         }
 
         // ---------------------------------------------------------
