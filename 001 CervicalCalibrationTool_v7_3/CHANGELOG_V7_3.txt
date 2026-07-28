@@ -1,0 +1,10 @@
+CervicalCalibrationTool v7.3
+
+- Removed all regression/equation calculations.
+- Removed the CALCULATE REGRESSION button and Result block.
+- Removed single-channel calibration JSON export.
+- Added EXPORT SAVED POINTS (.CSV) for all accepted table rows.
+- Saved-points CSV uses the same column structure as the previous classroom calibration CSV files.
+- SAVE CURRENT RAW (.CSV) now creates only the raw CSV; no companion metadata JSON is created.
+- Preserved the v7.2 filtered-signal SD, peak-to-peak, and drift acceptance logic.
+- Preserved automatic minimum acquisition time and START/STOP buffer clearing.

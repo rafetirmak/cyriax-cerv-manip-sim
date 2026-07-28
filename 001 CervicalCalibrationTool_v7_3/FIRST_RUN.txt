@@ -1,0 +1,15 @@
+FIRST RUN
+
+1. Extract the ZIP into a new folder.
+2. Open CervicalCalibrationTool.sln.
+3. Select Debug | x64.
+4. Start the program.
+5. Select one channel.
+6. Enter the known reference value and apply the load.
+7. Press START.
+8. Wait until STOP changes to STOP & SAVE POINT.
+9. Press STOP to save the accepted point.
+10. Repeat for the remaining reference values.
+11. Press EXPORT SAVED POINTS (.CSV) to save the table.
+
+The program intentionally does not calculate a regression equation and does not export JSON.
