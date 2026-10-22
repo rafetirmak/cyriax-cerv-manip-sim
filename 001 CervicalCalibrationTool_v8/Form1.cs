@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
@@ -50,8 +50,7 @@ public sealed class Form1 : Form
     private SensorFilterPipeline? _pipeline;
 
     private ComboBox _cmbChannel = null!;
-    private Button _btnStart = null!;
-    private Button _btnStop = null!;
+    private Button _btnStartStop = null!;
     private Button _btnClearSession = null!;
     private Button _btnSaveRaw = null!;
     private Label _lblStatus = null!;
@@ -79,7 +78,6 @@ public sealed class Form1 : Form
     private NumericUpDown _numStableWindow = null!;
     private NumericUpDown _numMaxStdMv = null!;
     private NumericUpDown _numMaxDriftMvPerSec = null!;
-    private Button _btnCapturePoint = null!;
     private Button _btnRemovePoint = null!;
     private Button _btnExport = null!;
 
@@ -103,13 +101,14 @@ public sealed class Form1 : Form
 
     private void InitializeUi()
     {
-        Text = "Single-Channel Calibration Data Collector — Raw Voltage + Filtering";
+        Text = "Single-Channel Calibration Data Collector - Raw Voltage + Filtering";
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96F, 96F);
         MinimumSize = new Size(1280, 760);
         ClientSize = new Size(1440, 860);
-        Font = new Font("Segoe UI", 9F);
+        Font = new Font("Segoe UI", 9.75F);
+        BackColor = Color.FromArgb(248, 249, 250);
 
         SuspendLayout();
 
@@ -139,10 +138,6 @@ public sealed class Form1 : Form
         left.Controls.Add(acquisition);
         y += acquisition.Height + 10;
 
-        GroupBox live = BuildLiveGroup(y);
-        left.Controls.Add(live);
-        y += live.Height + 10;
-
         _grpCalibration = BuildCalibrationGroup(y);
         left.Controls.Add(_grpCalibration);
         y += _grpCalibration.Height + 10;
@@ -166,20 +161,28 @@ public sealed class Form1 : Form
             BackColor = Color.White
         };
         _canvas.Paint += Canvas_Paint;
+        
+        var liveStrip = BuildLiveStrip();
+        rightSplit.Panel1.Controls.Add(liveStrip);
         rightSplit.Panel1.Controls.Add(_canvas);
+        _canvas.BringToFront();
 
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
-            ReadOnly = true,
             MultiSelect = false,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            SelectionMode = DataGridViewSelectionMode.RowHeaderSelect,
             AutoGenerateColumns = false,
             RowHeadersVisible = false
         };
+        _grid.DataError += (s, e) => e.Cancel = true;
+        
+        var actionStrip = BuildActionStrip();
+        rightSplit.Panel2.Controls.Add(actionStrip);
         rightSplit.Panel2.Controls.Add(_grid);
+        _grid.BringToFront();
 
         ResumeLayout(performLayout: true);
 
@@ -250,7 +253,7 @@ public sealed class Form1 : Form
 
     private GroupBox BuildAcquisitionGroup(int top)
     {
-        var group = NewGroup("1. Single-Channel Acquisition", top, 278);
+        var group = NewGroup("1. Single-Channel Acquisition", top, 236);
 
         group.Controls.Add(NewLabel("Calibration channel", 15, 29, 135));
         _cmbChannel = new ComboBox
@@ -261,34 +264,24 @@ public sealed class Form1 : Form
         };
         _cmbChannel.Items.AddRange(new object[]
         {
-            "Force — Channel 0",
-            "Angle — Channel 1"
+            "Force - Channel 0",
+            "Angle - Channel 1"
         });
         _cmbChannel.SelectedIndex = 0;
         _cmbChannel.SelectedIndexChanged += ChannelSelectionChanged;
         group.Controls.Add(_cmbChannel);
 
-        _btnStart = NewButton("START", 15, 63, 195, 34);
-        _btnStart.BackColor = Color.LightGreen;
-        _btnStart.Click += BtnStart_Click;
-        group.Controls.Add(_btnStart);
-
-        _btnStop = NewButton("STOP", 220, 63, 195, 34);
-        _btnStop.BackColor = Color.LightCoral;
-        _btnStop.Click += (_, _) => StopAndCaptureMeasurement();
-        group.Controls.Add(_btnStop);
-
-        _btnSaveRaw = NewButton("SAVE CURRENT RAW (.CSV)", 15, 105, 265, 32);
+        _btnSaveRaw = NewButton("SAVE CURRENT RAW (.CSV)", 15, 63, 265, 32);
         _btnSaveRaw.Click += BtnSaveRaw_Click;
         group.Controls.Add(_btnSaveRaw);
 
-        _btnClearSession = NewButton("CLEAR SESSION", 290, 105, 125, 32);
-        _btnClearSession.Click += (_, _) => ClearSession();
+        _btnClearSession = NewButton("RESET SESSION", 290, 63, 125, 32);
+        _btnClearSession.Click += BtnClearSession_Click;
         group.Controls.Add(_btnClearSession);
 
         _lblStatus = new Label
         {
-            Location = new Point(15, 147),
+            Location = new Point(15, 105),
             Size = new Size(400, 23),
             Text = "Ready."
         };
@@ -296,14 +289,14 @@ public sealed class Form1 : Form
 
         _lblSampling = new Label
         {
-            Location = new Point(15, 172),
+            Location = new Point(15, 130),
             Size = new Size(400, 42)
         };
         group.Controls.Add(_lblSampling);
 
         _lblMinimumAcquisition = new Label
         {
-            Location = new Point(15, 216),
+            Location = new Point(15, 174),
             Size = new Size(400, 50),
             ForeColor = Color.DarkBlue,
             Text = "Minimum acquisition time will be calculated automatically."
@@ -312,25 +305,78 @@ public sealed class Form1 : Form
         return group;
     }
 
-    private GroupBox BuildLiveGroup(int top)
+    private Panel BuildLiveStrip()
     {
-        var group = NewGroup("2. Live Voltage", top, 115);
-        group.Controls.Add(NewLabel("Channel", 15, 28, 110));
-        group.Controls.Add(NewLabel("Raw voltage", 130, 28, 120));
-        group.Controls.Add(NewLabel("Filtered", 275, 28, 125));
+        var strip = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 70,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(33, 37, 41)
+        };
 
-        _lblLiveSensor = NewLabel("Force Ch0", 15, 63, 110);
-        _txtRaw = NewReadOnlyText(130, 58, 130);
-        _txtFiltered = NewReadOnlyText(275, 58, 140);
-        group.Controls.Add(_lblLiveSensor);
-        group.Controls.Add(_txtRaw);
-        group.Controls.Add(_txtFiltered);
-        return group;
+        _lblLiveSensor = new Label 
+        { 
+            Text = "Force Ch0", 
+            Location = new Point(15, 18), 
+            AutoSize = true, 
+            Font = new Font("Segoe UI", 16F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(13, 110, 253) // blue for emphasis
+        };
+        strip.Controls.Add(_lblLiveSensor);
+
+        var lblRaw = new Label 
+        { 
+            Text = "RAW (V):", 
+            Location = new Point(200, 23), 
+            AutoSize = true, 
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(33, 37, 41)
+        };
+        strip.Controls.Add(lblRaw);
+
+        _txtRaw = new TextBox 
+        { 
+            Location = new Point(300, 15), 
+            Width = 150, 
+            ReadOnly = true, 
+            BackColor = Color.FromArgb(248, 249, 250), 
+            ForeColor = Color.FromArgb(40, 167, 69), // dark green
+            Font = new Font("Consolas", 18F, FontStyle.Bold),
+            BorderStyle = BorderStyle.FixedSingle,
+            TextAlign = HorizontalAlignment.Right
+        };
+        strip.Controls.Add(_txtRaw);
+
+        var lblFilt = new Label 
+        { 
+            Text = "FILTERED:", 
+            Location = new Point(480, 23), 
+            AutoSize = true, 
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(33, 37, 41)
+        };
+        strip.Controls.Add(lblFilt);
+
+        _txtFiltered = new TextBox 
+        { 
+            Location = new Point(590, 15), 
+            Width = 160, 
+            ReadOnly = true, 
+            BackColor = Color.FromArgb(248, 249, 250), 
+            ForeColor = Color.FromArgb(13, 110, 253), // dark blue
+            Font = new Font("Consolas", 18F, FontStyle.Bold),
+            BorderStyle = BorderStyle.FixedSingle,
+            TextAlign = HorizontalAlignment.Right
+        };
+        strip.Controls.Add(_txtFiltered);
+
+        return strip;
     }
 
     private GroupBox BuildFilterGroup(int top)
     {
-        var group = NewGroup("4. Filters", top, 300);
+        var group = NewGroup("3. Filters", top, 300);
 
         _chkNotch = NewCheckBox("50 Hz notch filter", 15, 28, true);
         group.Controls.Add(_chkNotch);
@@ -371,56 +417,97 @@ public sealed class Form1 : Form
         return group;
     }
 
+    private Panel BuildActionStrip()
+    {
+        var strip = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 60,
+            BackColor = Color.FromArgb(233, 236, 239), // slightly gray for separation
+            Padding = new Padding(10)
+        };
+
+        _btnStartStop = NewButton("START", 15, 13, 240, 34);
+        _btnStartStop.BackColor = Color.FromArgb(40, 167, 69);
+        _btnStartStop.ForeColor = Color.White;
+        _btnStartStop.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        _btnStartStop.Click += BtnStartStop_Click;
+        strip.Controls.Add(_btnStartStop);
+
+        var lblKnown = NewLabel("Known value:", 270, 20, 110);
+        lblKnown.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        lblKnown.ForeColor = Color.FromArgb(33, 37, 41);
+        strip.Controls.Add(lblKnown);
+
+        _numKnownValue = NewNumeric(380, 16, 90, -10000, 10000, 0, 3, increment: 0.1m);
+        _numKnownValue.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        _numKnownValue.BackColor = Color.White;
+        _numKnownValue.ForeColor = Color.FromArgb(33, 37, 41);
+        strip.Controls.Add(_numKnownValue);
+
+        _lblKnownUnit = NewLabel("kgf", 475, 20, 40);
+        _lblKnownUnit.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        _lblKnownUnit.ForeColor = Color.FromArgb(33, 37, 41);
+        strip.Controls.Add(_lblKnownUnit);
+
+        _btnRemovePoint = NewButton("REMOVE POINT", 530, 13, 130, 34);
+        _btnRemovePoint.BackColor = Color.White;
+        _btnRemovePoint.ForeColor = Color.FromArgb(220, 53, 69);
+        _btnRemovePoint.Click += BtnRemovePoint_Click;
+        strip.Controls.Add(_btnRemovePoint);
+
+        _btnExport = NewButton("EXPORT CSV", 670, 13, 130, 34);
+        _btnExport.BackColor = Color.FromArgb(13, 110, 253);
+        _btnExport.ForeColor = Color.White;
+        _btnExport.Click += BtnExport_Click;
+        strip.Controls.Add(_btnExport);
+
+        return strip;
+    }
+
     private GroupBox BuildCalibrationGroup(int top)
     {
-        var group = NewGroup("3. Measurement Point", top, 265);
+        var group = NewGroup("2. Capture Settings", top, 140);
 
-        group.Controls.Add(NewLabel("Known value", 15, 30, 110));
-        _numKnownValue = NewNumeric(125, 26, 205, -10000, 10000, 0, 3, increment: 0.1m);
-        group.Controls.Add(_numKnownValue);
-        _lblKnownUnit = NewLabel("kgf", 340, 30, 65);
-        group.Controls.Add(_lblKnownUnit);
-
-        group.Controls.Add(NewLabel("Stable window (s)", 15, 67, 145));
-        _numStableWindow = NewNumeric(175, 63, 95, 0.25m, 20, 5, 2, increment: 0.25m);
+        group.Controls.Add(NewLabel("Stable window (s)", 15, 33, 145));
+        _numStableWindow = NewNumeric(175, 29, 95, 0.25m, 20, 5, 2, increment: 0.25m);
         group.Controls.Add(_numStableWindow);
 
-        group.Controls.Add(NewLabel("Maximum SD (mV)", 15, 102, 145));
-        _numMaxStdMv = NewNumeric(175, 98, 95, 0.1m, 500, 2, 1, increment: 0.5m);
+        group.Controls.Add(NewLabel("Maximum SD (mV)", 15, 68, 145));
+        _numMaxStdMv = NewNumeric(175, 64, 95, 0.1m, 500, 2, 1, increment: 0.5m);
         group.Controls.Add(_numMaxStdMv);
 
-        group.Controls.Add(NewLabel("Maximum drift (mV/s)", 15, 137, 160));
-        _numMaxDriftMvPerSec = NewNumeric(175, 133, 95, 0.1m, 1000, 1, 1, increment: 0.5m);
+        group.Controls.Add(NewLabel("Maximum drift (mV/s)", 15, 103, 160));
+        _numMaxDriftMvPerSec = NewNumeric(175, 99, 95, 0.1m, 1000, 1, 1, increment: 0.5m);
         group.Controls.Add(_numMaxDriftMvPerSec);
 
-        _btnCapturePoint = NewButton("APPLY LOAD BEFORE START — STOP SAVES THE POINT", 15, 174, 400, 34);
-        _btnCapturePoint.BackColor = Color.LightSteelBlue;
-        _btnCapturePoint.Enabled = false;
-        group.Controls.Add(_btnCapturePoint);
-
-        _btnRemovePoint = NewButton("REMOVE SELECTED POINT", 15, 216, 195, 31);
-        _btnRemovePoint.Click += BtnRemovePoint_Click;
-        group.Controls.Add(_btnRemovePoint);
-
-        _btnExport = NewButton("EXPORT SAVED POINTS (.CSV)", 220, 216, 195, 31);
-        _btnExport.Click += BtnExport_Click;
-        group.Controls.Add(_btnExport);
         return group;
     }
 
     private void ConfigureGrid()
     {
+        _grid.BackgroundColor = Color.White;
+        _grid.BorderStyle = BorderStyle.None;
+        _grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 249, 250);
+        _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+        _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(233, 236, 239);
+        _grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        _grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        _grid.EnableHeadersVisualStyles = false;
+
         _grid.DataSource = _calibrationPoints;
-        _grid.Columns.Add(NewTextColumn("Known", nameof(CalibrationPoint.KnownValue), 75, "0.###"));
-        _grid.Columns.Add(NewTextColumn("Unit", nameof(CalibrationPoint.Unit), 55));
-        _grid.Columns.Add(NewTextColumn("Mean raw V", nameof(CalibrationPoint.MeanRawVoltage), 100, "0.000000"));
-        _grid.Columns.Add(NewTextColumn("Mean filtered V", nameof(CalibrationPoint.MeanFilteredVoltage), 110, "0.000000"));
-        _grid.Columns.Add(NewTextColumn("Filtered SD (mV)", nameof(CalibrationPoint.StandardDeviationMillivolts), 105, "0.000"));
-        _grid.Columns.Add(NewTextColumn("Filtered P-P (mV)", nameof(CalibrationPoint.PeakToPeakMillivolts), 110, "0.000"));
-        _grid.Columns.Add(NewTextColumn("Filtered drift (mV/s)", nameof(CalibrationPoint.DriftMillivoltsPerSecond), 125, "0.000"));
-        _grid.Columns.Add(NewTextColumn("Artifact %", nameof(CalibrationPoint.ArtifactPercent), 80, "0.0"));
-        _grid.Columns.Add(NewTextColumn("N", nameof(CalibrationPoint.SampleCount), 60));
-        _grid.Columns.Add(NewTextColumn("Time", nameof(CalibrationPoint.CapturedAt), 130, "HH:mm:ss"));
+        _grid.Columns.Add(NewTextColumn("ID", nameof(CalibrationPoint.Id), 40));
+        _grid.Columns.Add(NewTextColumn("Known", nameof(CalibrationPoint.KnownValue), 70, "0.###", readOnly: false));
+        _grid.Columns.Add(NewTextColumn("Unit", nameof(CalibrationPoint.Unit), 50));
+        _grid.Columns.Add(NewTextColumn("Mean raw\nV", nameof(CalibrationPoint.MeanRawVoltage), 95, "0.000000"));
+        _grid.Columns.Add(NewTextColumn("Mean filtered\nV", nameof(CalibrationPoint.MeanFilteredVoltage), 100, "0.000000"));
+        _grid.Columns.Add(NewTextColumn("Filtered SD\n(mV)", nameof(CalibrationPoint.StandardDeviationMillivolts), 100, "0.000"));
+        _grid.Columns.Add(NewTextColumn("Filtered P-P\n(mV)", nameof(CalibrationPoint.PeakToPeakMillivolts), 100, "0.000"));
+        _grid.Columns.Add(NewTextColumn("Filtered drift\n(mV/s)", nameof(CalibrationPoint.DriftMillivoltsPerSecond), 105, "0.000"));
+        _grid.Columns.Add(NewTextColumn("Artifact\n%", nameof(CalibrationPoint.ArtifactPercent), 70, "0.0"));
+        _grid.Columns.Add(NewTextColumn("N", nameof(CalibrationPoint.SampleCount), 55));
+        _grid.Columns.Add(NewTextColumn("Time", nameof(CalibrationPoint.CapturedAt), 85, "HH:mm:ss"));
     }
 
     private void HookMeasurementSettingEvents()
@@ -544,6 +631,18 @@ public sealed class Form1 : Form
         if (_canvas is not null)
             _canvas.Invalidate();
         UpdateAcquisitionUi();
+    }
+
+    private void BtnStartStop_Click(object? sender, EventArgs e)
+    {
+        if (_isAcquiring)
+        {
+            StopAndCaptureMeasurement();
+        }
+        else
+        {
+            BtnStart_Click(sender, e);
+        }
     }
 
     private void BtnStart_Click(object? sender, EventArgs e)
@@ -713,7 +812,6 @@ public sealed class Form1 : Form
         {
             _txtRaw.Text = lastRecord.RawVoltage.ToString("F6", CultureInfo.InvariantCulture);
             _txtFiltered.Text = lastRecord.FilteredVoltage.ToString("F6", CultureInfo.InvariantCulture);
-
             if (_records.Count < _minimumMeasurementSamples)
             {
                 int remainingSamples = _minimumMeasurementSamples - _records.Count;
@@ -823,6 +921,20 @@ public sealed class Form1 : Form
         _txtRaw.Clear();
         _txtFiltered.Clear();
         _canvas.Invalidate();
+    }
+
+    private void BtnClearSession_Click(object? sender, EventArgs e)
+    {
+        var result = MessageBox.Show(this, 
+            "Are you sure you want to completely reset the session? This will delete all unsaved measurement points and the graph data.",
+            "Confirm Reset", 
+            MessageBoxButtons.YesNo, 
+            MessageBoxIcon.Warning);
+
+        if (result == DialogResult.Yes)
+        {
+            ClearSession();
+        }
     }
 
     private void ClearSession()
@@ -948,6 +1060,7 @@ public sealed class Form1 : Form
         SensorDefinition sensor = SelectedSensor;
         _calibrationPoints.Add(new CalibrationPoint
         {
+            Id = _calibrationPoints.Count + 1,
             Sensor = sensor.Name,
             Channel = sensor.Channel,
             Unit = sensor.Unit,
@@ -962,6 +1075,14 @@ public sealed class Form1 : Form
             CapturedAt = DateTime.Now
         });
 
+        if (_grid.Rows.Count > 0)
+        {
+            var lastRowIndex = _grid.Rows.Count - 1;
+            _grid.ClearSelection();
+            _grid.Rows[lastRowIndex].Selected = true;
+            _grid.FirstDisplayedScrollingRowIndex = lastRowIndex;
+        }
+
         statusMessage =
             $"{sensor.Name} Ch{sensor.Channel} point saved: {_measurementKnownValue:0.###} {sensor.Unit}, " +
             $"N = {_measurementWindowSamples:N0}. Temporary raw buffer cleared.";
@@ -973,8 +1094,17 @@ public sealed class Form1 : Form
         if (_grid.CurrentRow?.DataBoundItem is not CalibrationPoint point)
             return;
 
-        _calibrationPoints.Remove(point);
-        UpdateAcquisitionUi();
+        var result = MessageBox.Show(this, 
+            $"Are you sure you want to delete the calibration point '{point.KnownValue} {point.Unit}'?",
+            "Confirm Deletion", 
+            MessageBoxButtons.YesNo, 
+            MessageBoxIcon.Warning);
+
+        if (result == DialogResult.Yes)
+        {
+            _calibrationPoints.Remove(point);
+            UpdateAcquisitionUi();
+        }
     }
 
     private void BtnExport_Click(object? sender, EventArgs e)
@@ -1012,10 +1142,12 @@ public sealed class Form1 : Form
     {
         var invariant = CultureInfo.InvariantCulture;
         using var writer = new StreamWriter(path, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-        writer.WriteLine("sensor,channel,known_value,unit,mean_raw_v,mean_filtered_v,filtered_sd_mv,filtered_p_p_mv,filtered_drift_mv_s,artifact_percent,n,captured_at");
+        writer.WriteLine("id,sensor,channel,known_value,unit,mean_raw_v,mean_filtered_v,filtered_sd_mv,filtered_p_p_mv,filtered_drift_mv_s,artifact_percent,n,captured_at");
 
         foreach (CalibrationPoint point in _calibrationPoints)
         {
+            writer.Write(point.Id.ToString(invariant));
+            writer.Write(',');
             writer.Write(CsvEscape(point.Sensor));
             writer.Write(',');
             writer.Write(point.Channel.ToString(invariant));
@@ -1227,22 +1359,21 @@ public sealed class Form1 : Form
 
     private void UpdateAcquisitionUi()
     {
-        if (_btnStart is null)
+        if (_btnStartStop is null)
             return;
 
         bool measurementReady = _isAcquiring
                              && _minimumMeasurementSamples > 0
                              && _records.Count >= _minimumMeasurementSamples;
 
-        _btnStart.Enabled = !_isAcquiring;
-        _btnStop.Enabled = measurementReady;
-        _btnStop.Text = !_isAcquiring ? "STOP" : (measurementReady ? "STOP & SAVE POINT" : "COLLECTING...");
+        _btnStartStop.Enabled = !_isAcquiring || measurementReady;
+        _btnStartStop.Text = !_isAcquiring ? "START" : (measurementReady ? "STOP & SAVE POINT" : "COLLECTING...");
+        _btnStartStop.BackColor = !_isAcquiring ? Color.FromArgb(40, 167, 69) : Color.FromArgb(220, 53, 69);
         _btnClearSession.Enabled = !_isAcquiring && (_records.Count > 0 || _calibrationPoints.Count > 0);
         _btnSaveRaw.Enabled = measurementReady;
         _cmbChannel.Enabled = !_isAcquiring;
         _grpFilters.Enabled = !_isAcquiring;
         _grpCalibration.Enabled = !_isAcquiring;
-        _btnCapturePoint.Enabled = false;
         _btnRemovePoint.Enabled = !_isAcquiring && _calibrationPoints.Count > 0;
         _btnExport.Enabled = !_isAcquiring && _calibrationPoints.Count > 0;
 
@@ -1276,7 +1407,9 @@ public sealed class Form1 : Form
             Text = text,
             Location = new Point(10, top),
             Size = new Size(430, height),
-            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+            Font = new Font("Segoe UI", 9.75F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(33, 37, 41)
         };
 
     private static Label NewLabel(string text, int x, int y, int width)
@@ -1294,7 +1427,9 @@ public sealed class Form1 : Form
             Text = text,
             Location = new Point(x, y),
             Size = new Size(width, height),
-            UseVisualStyleBackColor = false
+            UseVisualStyleBackColor = false,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand
         };
 
     private static TextBox NewReadOnlyText(int x, int y, int width)
@@ -1340,14 +1475,16 @@ public sealed class Form1 : Form
         string header,
         string property,
         int width,
-        string? format = null)
+        string? format = null,
+        bool readOnly = true)
     {
         var column = new DataGridViewTextBoxColumn
         {
             HeaderText = header,
             DataPropertyName = property,
             Width = width,
-            SortMode = DataGridViewColumnSortMode.Automatic
+            SortMode = DataGridViewColumnSortMode.Automatic,
+            ReadOnly = readOnly
         };
         if (!string.IsNullOrWhiteSpace(format))
             column.DefaultCellStyle.Format = format;

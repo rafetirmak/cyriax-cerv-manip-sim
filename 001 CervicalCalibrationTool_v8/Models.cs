@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CervicalCalibrationTool;
@@ -16,10 +16,11 @@ public sealed class SampleRecord
 
 public sealed class CalibrationPoint
 {
+    public int Id { get; init; }
     public string Sensor { get; init; } = string.Empty;
     public int Channel { get; init; }
     public string Unit { get; init; } = string.Empty;
-    public double KnownValue { get; init; }
+    public double KnownValue { get; set; }
     public double MeanRawVoltage { get; init; }
     public double MeanFilteredVoltage { get; init; }
     public double StandardDeviationVolts { get; init; }
